@@ -1,0 +1,36 @@
+{
+  "name": "vrcls",
+  "version": "0.6.0",
+  "description": "VRCLS Desktop Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "concurrently \"npm:run-vue-dev\" \"npm:run-electron-dev\"",
+    "run-vue-dev": "cd ../webUI && npm run serve",
+    "run-electron-dev": "electron .",
+    "build": "npm run build:vue && electron-builder",
+    "build:vue": "cd ../webUI && npm run build"
+  },
+  "build": {
+    "appId": "com.voicelinkvr.vrcls",
+    "productName": "VRCLS",
+    "win": {
+      "target": "nsis",
+      "icon": "../img/favicon.ico"
+    },
+    "extraResources": [
+      {
+        "from": "../dist/VRCLS",
+        "to": "py/VRCLS"
+      }
+    ]
+  },
+  "dependencies": {
+    "python-shell": "^5.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  }
+}

@@ -177,6 +177,5 @@ cython_debug/
 #.idea/
 
 !main.spec
-dist-electron/
-electron-shell/
-node_modules/
+node_modules
+nul
