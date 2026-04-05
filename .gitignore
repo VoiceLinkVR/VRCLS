@@ -1,0 +1,3 @@
+node_modules/
+*.log
+status-api-demo/services.json

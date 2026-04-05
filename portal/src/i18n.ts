@@ -1,0 +1,894 @@
+import { ref, watch } from 'vue'
+
+export type Locale = 'zh-CN' | 'en' | 'ja'
+
+type Primitive = string | number | boolean | null | undefined
+interface MessageNode {
+  [key: string]: string | MessageNode
+}
+
+type MessageValue = string | MessageNode
+
+const LOCALE_STORAGE_KEY = 'vrcls.portal.locale'
+const FALLBACK_LOCALE: Locale = 'zh-CN'
+
+const messages: Record<Locale, MessageNode> = {
+  'zh-CN': {
+    brand: {
+      app: 'VoiceLinkVR',
+      portal: 'VoiceLinkVR 控制台',
+    },
+    route: {
+      landing: 'VoiceLinkVR 产品中心',
+      auth: '登录与注册',
+      overview: '服务总览',
+      billing: '订阅与额度',
+      orders: '账单明细',
+      usage: 'API 监控',
+    },
+    common: {
+      signIn: '登录控制台',
+      signOut: '退出登录',
+      register: '创建账户',
+      openPortal: '进入控制台',
+      openBilling: '管理订阅',
+      createOrder: '立即订阅',
+      loading: '加载中...',
+      refreshing: '同步中...',
+      close: '关闭',
+      cancel: '取消',
+      confirm: '确认',
+      submit: '提交',
+      save: '保存',
+      language: '语言',
+      status: '状态',
+      currentPlan: '当前套餐',
+      currentQuota: '可用资源',
+      accountStatus: '服务状态',
+      active: '运行中',
+      inactive: '已暂停',
+      expired: '已到期',
+      pending: '处理中',
+      paid: '已支付',
+      cancelled: '已取消',
+      free: '免费额度',
+      unknown: '未知',
+      renew: '续订套餐',
+      upgrade: '升级套餐',
+      downgrade: '降级套餐',
+      addon: '资源包',
+      month: '个月',
+      directPayHint: '跳转后请直接在收银台付款，修改金额可能导致订单无法自动生效。',
+      amountPerMonth: '金额（元/月）',
+      totalAmount: '订单总额',
+      quotaPreview: '预计获取额度',
+      quotaRemaining: '今日剩余额度',
+      quotaRule: '额度规则',
+      goPay: '前往安全支付 ➚',
+      continuePay: '继续支付',
+      noData: '暂无数据',
+      daysRange: '日期范围',
+      query: '查询',
+      startDate: '开始日期',
+      endDate: '结束日期',
+      openInNewTab: '新窗口打开',
+      minutesAgo: '{count} 分钟前',
+      justNow: '刚刚',
+      version: '版本',
+      email: '邮箱地址',
+      password: '密码',
+      displayName: '账户昵称',
+      optional: '可选',
+      backHome: '返回首页',
+      planSummary: '当前为 {price}/月',
+    },
+    locale: {
+      'zh-CN': '中文',
+      en: 'English',
+      ja: '日本語',
+    },
+    landing: {
+      badge: '下一代 VR 实时翻译引擎',
+      title: '打破虚拟世界的语言边界',
+      titleAccent: 'AI 驱动',
+      copy: 'VoiceLinkVR 控制台为您提供实时的 API 监控、额度管理与翻译引擎配置服务。让跨国虚拟社交如呼吸般自然。',
+      primary: '进入控制台',
+      secondary: '创建账户',
+      github: '获取客户端',
+      metricsUsers: '毫秒级',
+      metricsUsersLabel: '超低延迟流式识别',
+      metricsQuota: '20+',
+      metricsQuotaLabel: '支持全球主流语种',
+      metricsUsage: '原生 OSC',
+      metricsUsageLabel: 'VRChat 深度沉浸整合',
+      terminalSession: '正在建立高安全云端加密连接...',
+      terminalProfile: '同步 VRCLS 引擎个性化配置...',
+      terminalBilling: '云端 AI 推理算力分配完毕。',
+      featureTitle: '专为沉浸式虚拟社交设计',
+      featureCurrent: '统一云端身份',
+      featureCurrentBody: '只需一个 VoiceLinkVR 账户，即可在桌面客户端与 Web 控制台之间无缝同步您的偏好设置与订阅资源。',
+      featureBilling: '弹性 AI 算力',
+      featureBillingBody: '按需获取云端翻译算力。补充后可快速生效，保障您在 VRChat 聚会中的跨国沟通不断线。',
+      featureUsage: '透明监控面板',
+      featureUsageBody: '每一条语音识别与翻译请求都清晰可查。通过详尽的数据看板，精准掌控您的 API 使用状况。',
+    },
+    auth: {
+      asideTag: 'VoiceLinkVR Console',
+      titleLogin: '登录控制台',
+      titleRegister: '创建账户',
+      introTitle: '连接您的虚拟世界语言中枢。',
+      introCopy: '登录 VoiceLinkVR 控制台以分配 VRCLS 客户端的云端算力，并获取实时的 API 消耗明细与订阅服务。',
+      sessionTitle: '毫秒级云端同步',
+      sessionBody: '在控制台产生的额度变更与配置修改，将瞬间下发至您的 VRCLS 本地客户端。',
+      billingTitle: '安全支付',
+      billingBody: '接入官方验证的加密支付网关，自动化订单系统确保服务快速开通。',
+      loginMode: '账户登录',
+      registerMode: '注册账户',
+      submitLogin: '登入系统',
+      submitRegister: '立即注册',
+      submitting: '身份验证中...',
+      displayNamePlaceholder: '例: VR Explorer',
+      emailPlaceholder: '请输入常用的邮箱地址',
+      passwordPlaceholder: '长度至少 6 位字符',
+    },
+    nav: {
+      overview: '服务总览',
+      billing: '订阅与额度',
+      orders: '账单明细',
+      usage: 'API 监控',
+      center: '工作台',
+      live: '节点正常',
+      menu: '菜单',
+      promoTitle: '翻译算力不足？',
+      promoBody: '及时补充云端算力，确保您的 VRC 社交实时字幕不中断。',
+    },
+    overview: {
+      alertTag: '系统警告',
+      alertTitle: '今日翻译算力即将耗尽',
+      alertBody: '您的云端 AI 推理算力接近上限。为避免在 VR 交流中途发生服务中断，建议立即补充资源。',
+      alertAction: '补充额度',
+      requestsTitle: '今日 API 请求数',
+      requestsCaption: '今日成功处理的语音识别与翻译接口调用次数。',
+      quotaTitle: '今日算力消耗',
+      quotaCaption: '当前可用计算资源消耗进度。',
+      addonTitle: '备用算力包',
+      addonCaption: '日常额度耗尽后自动启动的备用资源。',
+      factPlan: '当前订阅方案',
+      factQuota: '剩余算力',
+      factStatus: '服务状态',
+      factUsage: '计费周期',
+      factQuotaHealthy: '当前资源充足，服务运行稳定。',
+      factQuotaLow: '资源低于安全水位，建议尽早补充。',
+      factUsageDetail: '请前往 API 监控面板查看详细消耗日志。',
+      directionTitle: '引擎运行状态良好',
+      directionBody: '您的控制台与 VRCLS 客户端通信正常。如遇翻译延迟或无响应，请优先在此检查可用额度是否充足。',
+      directionItemPlan: '套餐订阅或续期操作通常在 1 分钟内全局生效。',
+      directionItemBilling: '请确保在支付时登录的是您正在使用的终端账户。',
+      directionItemUsage: '为保护隐私，控制台仅保留最近 30 天的调用数据统计。',
+      timelineTitle: '系统公告',
+      timelineBilling: '支付网关升级完成',
+      timelineBillingBody: '支付流程已进一步优化，网页端可直接拉起收银台，自动发放延迟缩短至秒级。',
+      timelineUsage: '全景用量监控上线',
+      timelineUsageBody: '新增精细化监控面板，可直观看到语音识别与语言翻译的具体算力消耗。',
+      gotoUsage: '查看 API 日志',
+    },
+    billing: {
+      heroTag: '订阅管理',
+      heroTitle: '获取更强大的云端翻译算力',
+      heroBody: '升级您的套餐或购买扩展算力包，享受更高的每日调用配额与专属云端节点，确保您的跨国社交稳定进行。',
+      guideTitle: '当前配额状态',
+      actionTitle: '管理服务',
+      priceTitle: '配置订阅',
+      previewTitle: '订单预览',
+      currentPlan: '当前方案',
+      currentQuota: '每日限额',
+      ruleSummary: '计费规则：每 {priceStep} 元可获取额外 {resourceStep} 单位算力配额。',
+      warningTitle: '支付须知',
+      warningBody: '系统通过订单金额的精确匹配来触发自动化开通流程，请勿在第三方支付界面更改金额。',
+      monthsLabel: '订阅周期',
+      amountLabel: '方案规格',
+      expectedQuota: '升级后预计配额',
+      addonBalance: '预计获取备用算力',
+      payAction: '前往安全收银台',
+      creating: '正在生成加密交易...',
+      opened: '安全收银台已在独立窗口开启，请完成支付操作。',
+      pendingTitle: '未完成订单',
+      pendingEmpty: '当前账户无待处理订单。',
+      actionDescriptionRenew: '维持当前规格，延长服务有效周期。',
+      actionDescriptionUpgrade: '提升服务规格，立即扩充您的单日最大算力配额。',
+      actionDescriptionDowngrade: '当前版本不提供降档操作。',
+      actionDescriptionAddon: '购买一次性独立算力包，在固定配额耗尽时自动抵扣。',
+      firstPurchaseHint: '新用户可从基础方案开始体验完整服务。',
+      expectedResourceAfter: '预估增加算力：{quota}',
+      generatedOrder: '交易创建成功，点击继续支付。',
+      actionDisabled: '该操作在当前服务状态下不可用。',
+      goOrders: '查看历史账单',
+    },
+    orders: {
+      heroTag: '财务中心',
+      heroTitle: '账单与历史交易记录',
+      heroBody: '查询您的所有订阅更新与资源购买记录。如遇扣款成功但服务未开通的异常情况，请凭订单号联系技术支持。',
+      listTitle: '交易流水',
+      count: '共检索到 {count} 笔记录',
+      orderId: '交易流水号',
+      action: '业务类型',
+      amount: '实付金额',
+      channel: '支付网关',
+      created: '创建时间',
+      status: '订单状态',
+      continuePay: '继续支付',
+      empty: '暂无交易记录。',
+    },
+    usage: {
+      heroTag: '监控中心',
+      heroTitle: '全面掌控您的 API 资源消耗',
+      heroBody: '精确追踪语音请求与翻译服务的调用详情。若消耗速率超出预期，建议在客户端内适当调低 VAD 灵敏度以避免无效拾音。',
+      summaryRequests: '成功响应',
+      summaryTotal: '请求总量',
+      summaryQuotaUsed: '已耗算力',
+      summaryQuotaRemaining: '剩余配额',
+      summaryAddonUsed: '已耗备用算力',
+      summaryAddonBalance: '备用算力余量',
+      summaryExpiration: '服务到期日',
+      summaryRange: '数据采信区间',
+      detailsTitle: '调用监控日志',
+      date: '日期',
+      success: '成功调用',
+      failed: '失败/被拒',
+      limited: '限流拦截',
+      quotaUsed: '折算消耗',
+      dailyRemaining: '结算结余',
+      empty: '指定日期范围内无服务调用记录。',
+    },
+    errors: {
+      init: '认证服务握手失败，请刷新页面重试。',
+      loadPortal: '控制台数据同步失败，请检查网络连接。',
+      login: '鉴权失败：邮箱或密码无效。',
+      register: '注册失败：该邮箱地址已被占用。',
+      invalidCredentials: '鉴权失败：邮箱或密码无效。',
+      emailRegistered: '该邮箱已被注册，请前往登录。',
+      userInactive: '访问被拒绝：您的账户已被冻结。',
+      accountExpired: '您的订阅服务已过期。',
+      mismatchAction: '交易配置异常：操作类型与所选规格不符。',
+      generic: '网关响应超时，请稍后重试。',
+    },
+  },
+  en: {
+    brand: {
+      app: 'VoiceLinkVR',
+      portal: 'VoiceLinkVR Console',
+    },
+    route: {
+      landing: 'VoiceLinkVR Hub',
+      auth: 'Sign In & Register',
+      overview: 'Overview',
+      billing: 'Plans & Quota',
+      orders: 'Billing History',
+      usage: 'API Monitor',
+    },
+    common: {
+      signIn: 'Sign In',
+      signOut: 'Sign Out',
+      register: 'Create Account',
+      openPortal: 'Open Console',
+      openBilling: 'Manage Plan',
+      createOrder: 'Subscribe Now',
+      loading: 'Loading...',
+      refreshing: 'Syncing...',
+      close: 'Close',
+      cancel: 'Cancel',
+      confirm: 'Confirm',
+      submit: 'Submit',
+      save: 'Save',
+      language: 'Language',
+      status: 'Status',
+      currentPlan: 'Current Plan',
+      currentQuota: 'Available Resources',
+      accountStatus: 'Service Status',
+      active: 'Active',
+      inactive: 'Paused',
+      expired: 'Expired',
+      pending: 'Processing',
+      paid: 'Paid',
+      cancelled: 'Cancelled',
+      free: 'Free Quota',
+      unknown: 'Unknown',
+      renew: 'Renew',
+      upgrade: 'Upgrade',
+      downgrade: 'Downgrade',
+      addon: 'Resource Pack',
+      month: 'month',
+      directPayHint: 'Please complete payment directly at checkout after redirection. Changing the amount may prevent automatic activation.',
+      amountPerMonth: 'Amount (CNY / month)',
+      totalAmount: 'Order Total',
+      quotaPreview: 'Projected Quota',
+      quotaRemaining: 'Remaining Today',
+      quotaRule: 'Quota Rules',
+      goPay: 'Proceed to Secure Payment ➚',
+      continuePay: 'Continue Payment',
+      noData: 'No data available',
+      daysRange: 'Date Range',
+      query: 'Query',
+      startDate: 'Start Date',
+      endDate: 'End Date',
+      openInNewTab: 'Open in new tab',
+      minutesAgo: '{count} minutes ago',
+      justNow: 'Just now',
+      version: 'Version',
+      email: 'Email Address',
+      password: 'Password',
+      displayName: 'Display Name',
+      optional: 'Optional',
+      backHome: 'Back to Home',
+      planSummary: 'Current plan: {price}/month',
+    },
+    locale: {
+      'zh-CN': '中文',
+      en: 'English',
+      ja: '日本語',
+    },
+    landing: {
+      badge: 'Next-Gen VR Real-Time Translation Engine',
+      title: 'Break language barriers in virtual worlds',
+      titleAccent: 'AI Powered',
+      copy: 'The VoiceLinkVR Console gives you real-time API monitoring, quota management, and translation engine configuration in one place.',
+      primary: 'Open Console',
+      secondary: 'Create Account',
+      github: 'Get Client',
+      metricsUsers: 'Milliseconds',
+      metricsUsersLabel: 'Ultra-low-latency streaming recognition',
+      metricsQuota: '20+',
+      metricsQuotaLabel: 'Major languages supported',
+      metricsUsage: 'Native OSC',
+      metricsUsageLabel: 'Deep VRChat integration',
+      terminalSession: 'Establishing secure cloud connection...',
+      terminalProfile: 'Syncing personalized VRCLS engine settings...',
+      terminalBilling: 'Cloud AI inference capacity allocated.',
+      featureTitle: 'Built for immersive virtual communication',
+      featureCurrent: 'Unified Cloud Identity',
+      featureCurrentBody: 'One VoiceLinkVR account keeps your preferences and subscription resources synchronized between the desktop client and web console.',
+      featureBilling: 'Elastic AI Capacity',
+      featureBillingBody: 'Add cloud translation capacity on demand. Updates take effect quickly, so conversations in VRChat stay uninterrupted.',
+      featureUsage: 'Transparent Monitoring',
+      featureUsageBody: 'Every speech recognition and translation request can be traced clearly through detailed dashboards.',
+    },
+    auth: {
+      asideTag: 'VoiceLinkVR Console',
+      titleLogin: 'Sign In',
+      titleRegister: 'Create Account',
+      introTitle: 'Connect to your language hub for virtual worlds.',
+      introCopy: 'Sign in to the VoiceLinkVR Console to allocate cloud capacity to your VRCLS client and review live API usage details.',
+      sessionTitle: 'Millisecond Cloud Sync',
+      sessionBody: 'Quota changes and configuration updates made in the console are pushed to your VRCLS desktop client almost instantly.',
+      billingTitle: 'Secure Checkout',
+      billingBody: 'Payments are processed through verified encrypted gateways, and successful orders are activated automatically.',
+      loginMode: 'Account Sign In',
+      registerMode: 'Create Account',
+      submitLogin: 'Enter Console',
+      submitRegister: 'Register Now',
+      submitting: 'Verifying identity...',
+      displayNamePlaceholder: 'Example: VR Explorer',
+      emailPlaceholder: 'Enter your primary email address',
+      passwordPlaceholder: 'At least 6 characters',
+    },
+    nav: {
+      overview: 'Overview',
+      billing: 'Plans & Quota',
+      orders: 'Billing History',
+      usage: 'API Monitor',
+      center: 'Workspace',
+      live: 'Nodes Healthy',
+      menu: 'Menu',
+      promoTitle: 'Running low on translation capacity?',
+      promoBody: 'Add cloud capacity in time to keep subtitles available during VRChat sessions.',
+    },
+    overview: {
+      alertTag: 'System Alert',
+      alertTitle: 'Today’s translation capacity is almost exhausted',
+      alertBody: 'Your cloud AI capacity is close to the limit. Add more resources now to avoid interruptions during VR conversations.',
+      alertAction: 'Add Capacity',
+      requestsTitle: 'API Requests Today',
+      requestsCaption: 'The number of speech recognition and translation calls processed successfully today.',
+      quotaTitle: 'Capacity Used Today',
+      quotaCaption: 'Current progress of resource consumption against your available quota.',
+      addonTitle: 'Backup Capacity',
+      addonCaption: 'Fallback resources that activate automatically after your daily quota is exhausted.',
+      factPlan: 'Current Plan',
+      factQuota: 'Remaining Capacity',
+      factStatus: 'Service Status',
+      factUsage: 'Billing Cycle',
+      factQuotaHealthy: 'Capacity remains healthy and the service is running normally.',
+      factQuotaLow: 'Capacity is below the safe threshold. A refill is recommended soon.',
+      factUsageDetail: 'Open API Monitor to review detailed usage logs.',
+      directionTitle: 'Engine status is healthy',
+      directionBody: 'Communication between the console and your VRCLS client is normal. If translation feels delayed, check available quota here first.',
+      directionItemPlan: 'Plan changes and renewals usually take effect across the system within one minute.',
+      directionItemBilling: 'Make sure you are signed in with the account used by your current client before paying.',
+      directionItemUsage: 'To protect privacy, the console keeps only the most recent 30 days of usage statistics.',
+      timelineTitle: 'System Notices',
+      timelineBilling: 'Payment gateway update completed',
+      timelineBillingBody: 'The payment flow has been streamlined and checkout now opens directly in the browser with faster activation.',
+      timelineUsage: 'Advanced usage monitoring is now available',
+      timelineUsageBody: 'The monitoring panel now separates speech recognition usage from translation usage more clearly.',
+      gotoUsage: 'View API Logs',
+    },
+    billing: {
+      heroTag: 'Plan Management',
+      heroTitle: 'Get more cloud translation capacity',
+      heroBody: 'Upgrade your plan or add extra resource packs for a higher daily quota and steadier access during global conversations.',
+      guideTitle: 'Current Quota Status',
+      actionTitle: 'Manage Service',
+      priceTitle: 'Configure Plan',
+      previewTitle: 'Order Preview',
+      currentPlan: 'Current Plan',
+      currentQuota: 'Daily Limit',
+      ruleSummary: 'Billing rule: every {priceStep} CNY grants an extra {resourceStep} units of capacity.',
+      warningTitle: 'Payment Notice',
+      warningBody: 'The system uses an exact amount match to activate services automatically. Do not modify the payment amount on the checkout page.',
+      monthsLabel: 'Subscription Term',
+      amountLabel: 'Plan Tier',
+      expectedQuota: 'Projected Quota',
+      addonBalance: 'Projected Backup Capacity',
+      payAction: 'Open Secure Checkout',
+      creating: 'Generating encrypted transaction...',
+      opened: 'The secure checkout has opened in a separate window. Please complete the payment there.',
+      pendingTitle: 'Pending Orders',
+      pendingEmpty: 'There are no pending orders for this account.',
+      actionDescriptionRenew: 'Keep the current tier and extend the active period.',
+      actionDescriptionUpgrade: 'Move to a higher tier and increase your daily capacity immediately.',
+      actionDescriptionDowngrade: 'Downgrade is not available in the current version.',
+      actionDescriptionAddon: 'Buy a one-time resource pack that is consumed automatically after the fixed quota is used up.',
+      firstPurchaseHint: 'New users can start with the base plan to experience the full service.',
+      expectedResourceAfter: 'Estimated added capacity: {quota}',
+      generatedOrder: 'Transaction created successfully. Click to continue payment.',
+      actionDisabled: 'This action is not available under the current service status.',
+      goOrders: 'View Billing History',
+    },
+    orders: {
+      heroTag: 'Finance',
+      heroTitle: 'Billing and transaction history',
+      heroBody: 'Review all subscription updates and resource purchases. If payment succeeds but service is not activated, contact support with your order ID.',
+      listTitle: 'Transactions',
+      count: '{count} records found',
+      orderId: 'Transaction ID',
+      action: 'Action',
+      amount: 'Amount Paid',
+      channel: 'Payment Gateway',
+      created: 'Created At',
+      status: 'Order Status',
+      continuePay: 'Continue Payment',
+      empty: 'No transaction records yet.',
+    },
+    usage: {
+      heroTag: 'Monitoring',
+      heroTitle: 'Track your API resource usage clearly',
+      heroBody: 'Follow speech requests and translation calls in detail. If consumption rises unexpectedly, lower VAD sensitivity in the client to reduce invalid pickup.',
+      summaryRequests: 'Successful Responses',
+      summaryTotal: 'Total Requests',
+      summaryQuotaUsed: 'Capacity Used',
+      summaryQuotaRemaining: 'Remaining Quota',
+      summaryAddonUsed: 'Backup Capacity Used',
+      summaryAddonBalance: 'Backup Capacity Remaining',
+      summaryExpiration: 'Expiration Date',
+      summaryRange: 'Observed Range',
+      detailsTitle: 'Invocation Logs',
+      date: 'Date',
+      success: 'Success',
+      failed: 'Failed / Rejected',
+      limited: 'Rate Limited',
+      quotaUsed: 'Converted Usage',
+      dailyRemaining: 'Daily Balance',
+      empty: 'No service usage records were found for the selected date range.',
+    },
+    errors: {
+      init: 'Authentication handshake failed. Please refresh the page and try again.',
+      loadPortal: 'Console synchronization failed. Please check your network connection.',
+      login: 'Authentication failed: invalid email or password.',
+      register: 'Registration failed: this email address is already in use.',
+      invalidCredentials: 'Authentication failed: invalid email or password.',
+      emailRegistered: 'This email address is already registered. Please sign in instead.',
+      userInactive: 'Access denied: your account has been suspended.',
+      accountExpired: 'Your subscription has expired.',
+      mismatchAction: 'Transaction configuration mismatch: the selected action does not match the chosen tier.',
+      generic: 'Gateway timeout. Please try again later.',
+    },
+  },
+  ja: {
+    brand: {
+      app: 'VoiceLinkVR',
+      portal: 'VoiceLinkVR コンソール',
+    },
+    route: {
+      landing: 'VoiceLinkVR プロダクトセンター',
+      auth: 'ログインと新規登録',
+      overview: 'サービス概要',
+      billing: 'プランと利用枠',
+      orders: '請求履歴',
+      usage: 'API 監視',
+    },
+    common: {
+      signIn: 'コンソールにログイン',
+      signOut: 'ログアウト',
+      register: 'アカウント作成',
+      openPortal: 'コンソールへ',
+      openBilling: 'プラン管理',
+      createOrder: '今すぐ申し込む',
+      loading: '読み込み中...',
+      refreshing: '同期中...',
+      close: '閉じる',
+      cancel: 'キャンセル',
+      confirm: '確認',
+      submit: '送信',
+      save: '保存',
+      language: '言語',
+      status: '状態',
+      currentPlan: '現在のプラン',
+      currentQuota: '利用可能リソース',
+      accountStatus: 'サービス状態',
+      active: '稼働中',
+      inactive: '停止中',
+      expired: '期限切れ',
+      pending: '処理中',
+      paid: '支払い済み',
+      cancelled: 'キャンセル済み',
+      free: '無料枠',
+      unknown: '不明',
+      renew: '更新',
+      upgrade: 'アップグレード',
+      downgrade: 'ダウングレード',
+      addon: '追加リソース',
+      month: 'か月',
+      directPayHint: '遷移後は決済画面でそのままお支払いください。金額を変更すると自動反映されない場合があります。',
+      amountPerMonth: '金額（元/月）',
+      totalAmount: '注文合計',
+      quotaPreview: '想定利用枠',
+      quotaRemaining: '本日の残量',
+      quotaRule: '利用枠ルール',
+      goPay: '安全な決済へ ➚',
+      continuePay: '支払いを続行',
+      noData: 'データはありません',
+      daysRange: '日付範囲',
+      query: '検索',
+      startDate: '開始日',
+      endDate: '終了日',
+      openInNewTab: '新しいタブで開く',
+      minutesAgo: '{count} 分前',
+      justNow: 'たった今',
+      version: 'バージョン',
+      email: 'メールアドレス',
+      password: 'パスワード',
+      displayName: '表示名',
+      optional: '任意',
+      backHome: 'ホームへ戻る',
+      planSummary: '現在のプラン: {price}/月',
+    },
+    locale: {
+      'zh-CN': '中文',
+      en: 'English',
+      ja: '日本語',
+    },
+    landing: {
+      badge: '次世代 VR リアルタイム翻訳エンジン',
+      title: '仮想世界の言語の壁を越える',
+      titleAccent: 'AI 駆動',
+      copy: 'VoiceLinkVR コンソールでは、リアルタイム API 監視、利用枠管理、翻訳エンジン設定をまとめて確認できます。',
+      primary: 'コンソールへ',
+      secondary: 'アカウント作成',
+      github: 'クライアント取得',
+      metricsUsers: 'ミリ秒級',
+      metricsUsersLabel: '超低遅延ストリーミング認識',
+      metricsQuota: '20+',
+      metricsQuotaLabel: '主要言語をサポート',
+      metricsUsage: 'ネイティブ OSC',
+      metricsUsageLabel: 'VRChat との深い連携',
+      terminalSession: '安全なクラウド接続を確立しています...',
+      terminalProfile: 'VRCLS エンジン設定を同期しています...',
+      terminalBilling: 'クラウド AI 推論リソースの割り当てが完了しました。',
+      featureTitle: '没入型の仮想コミュニケーション向け',
+      featureCurrent: '統一クラウド ID',
+      featureCurrentBody: '1 つの VoiceLinkVR アカウントで、デスクトップクライアントと Web コンソールの設定や利用枠を同期できます。',
+      featureBilling: '柔軟な AI リソース',
+      featureBillingBody: '必要なときにクラウド翻訳リソースを追加でき、VRChat での会話を途切れさせません。',
+      featureUsage: '透明な監視パネル',
+      featureUsageBody: '音声認識と翻訳の各リクエストを詳細なダッシュボードで追跡できます。',
+    },
+    auth: {
+      asideTag: 'VoiceLinkVR Console',
+      titleLogin: 'コンソールにログイン',
+      titleRegister: 'アカウント作成',
+      introTitle: '仮想世界の言語ハブに接続します。',
+      introCopy: 'VoiceLinkVR コンソールにログインすると、VRCLS クライアントへクラウドリソースを割り当て、API 利用状況を確認できます。',
+      sessionTitle: 'ミリ秒級クラウド同期',
+      sessionBody: 'コンソールで行った利用枠や設定の変更は、VRCLS デスクトップクライアントにすばやく反映されます。',
+      billingTitle: '安全な決済',
+      billingBody: '検証済みの暗号化決済ゲートウェイを利用し、支払い完了後は自動で反映されます。',
+      loginMode: 'アカウントログイン',
+      registerMode: 'アカウント登録',
+      submitLogin: 'ログイン',
+      submitRegister: '今すぐ登録',
+      submitting: '認証中...',
+      displayNamePlaceholder: '例: VR Explorer',
+      emailPlaceholder: '普段使うメールアドレスを入力してください',
+      passwordPlaceholder: '6 文字以上で入力してください',
+    },
+    nav: {
+      overview: 'サービス概要',
+      billing: 'プランと利用枠',
+      orders: '請求履歴',
+      usage: 'API 監視',
+      center: 'ワークスペース',
+      live: 'ノード正常',
+      menu: 'メニュー',
+      promoTitle: '翻訳リソースが不足していますか？',
+      promoBody: 'VRChat での字幕表示を維持するため、必要に応じてクラウドリソースを追加してください。',
+    },
+    overview: {
+      alertTag: 'システム警告',
+      alertTitle: '本日の翻訳リソースがまもなく上限です',
+      alertBody: 'クラウド AI リソースが上限に近づいています。VR 会話の途中で停止しないよう、早めの補充をおすすめします。',
+      alertAction: '利用枠を追加',
+      requestsTitle: '本日の API リクエスト数',
+      requestsCaption: '本日正常に処理された音声認識・翻訳 API 呼び出し回数です。',
+      quotaTitle: '本日の消費量',
+      quotaCaption: '現在の利用可能リソースに対する消費状況です。',
+      addonTitle: '予備リソース',
+      addonCaption: '日次利用枠を使い切った後に自動で使われる予備分です。',
+      factPlan: '現在のプラン',
+      factQuota: '残りリソース',
+      factStatus: 'サービス状態',
+      factUsage: '課金周期',
+      factQuotaHealthy: '現在は十分な余裕があり、サービスは安定しています。',
+      factQuotaLow: '安全水準を下回っています。早めの補充を推奨します。',
+      factUsageDetail: '詳細な消費ログは API 監視画面で確認してください。',
+      directionTitle: 'エンジンは正常に動作しています',
+      directionBody: 'コンソールと VRCLS クライアントの通信は正常です。翻訳遅延がある場合は、まず残り利用枠を確認してください。',
+      directionItemPlan: 'プラン変更や更新は通常 1 分以内に全体へ反映されます。',
+      directionItemBilling: '決済前に、現在利用中のクライアントと同じアカウントでログインしていることを確認してください。',
+      directionItemUsage: 'プライバシー保護のため、直近 30 日分の統計のみ保存されます。',
+      timelineTitle: 'お知らせ',
+      timelineBilling: '決済ゲートウェイ更新完了',
+      timelineBillingBody: '決済フローが改善され、ブラウザから直接チェックアウトを開けるようになりました。',
+      timelineUsage: '詳細利用監視を公開',
+      timelineUsageBody: '音声認識と翻訳の消費量をより明確に確認できるようになりました。',
+      gotoUsage: 'API ログを見る',
+    },
+    billing: {
+      heroTag: 'プラン管理',
+      heroTitle: 'より多くのクラウド翻訳リソースを利用する',
+      heroBody: 'プランのアップグレードや追加リソース購入で、日次利用枠を増やし、国際的な会話を安定して続けられます。',
+      guideTitle: '現在の利用枠状態',
+      actionTitle: 'サービス管理',
+      priceTitle: 'プラン設定',
+      previewTitle: '注文プレビュー',
+      currentPlan: '現在のプラン',
+      currentQuota: '1 日あたり上限',
+      ruleSummary: '課金ルール: {priceStep} 元ごとに {resourceStep} 単位の追加リソースが付与されます。',
+      warningTitle: '決済時の注意',
+      warningBody: '自動反映は注文金額の完全一致に依存しています。決済画面で金額を変更しないでください。',
+      monthsLabel: '契約期間',
+      amountLabel: 'プラン規模',
+      expectedQuota: '変更後の想定利用枠',
+      addonBalance: '想定される予備リソース',
+      payAction: '安全なチェックアウトへ',
+      creating: '暗号化された取引を生成しています...',
+      opened: 'チェックアウトを別ウィンドウで開きました。決済を完了してください。',
+      pendingTitle: '未完了の注文',
+      pendingEmpty: 'このアカウントに未処理の注文はありません。',
+      actionDescriptionRenew: '現在のプランを維持したまま利用期間を延長します。',
+      actionDescriptionUpgrade: 'より高いプランへ移行し、日次リソース上限を増やします。',
+      actionDescriptionDowngrade: '現行バージョンではダウングレードできません。',
+      actionDescriptionAddon: '固定枠を使い切ったあとに自動で消費される追加リソースを購入します。',
+      firstPurchaseHint: '新規ユーザーは基本プランから始めて全体の機能を体験できます。',
+      expectedResourceAfter: '追加見込みリソース: {quota}',
+      generatedOrder: '取引の作成に成功しました。クリックして決済を続行してください。',
+      actionDisabled: 'この操作は現在のサービス状態では利用できません。',
+      goOrders: '請求履歴を見る',
+    },
+    orders: {
+      heroTag: '財務',
+      heroTitle: '請求情報と取引履歴',
+      heroBody: 'すべてのプラン更新とリソース購入履歴を確認できます。決済済みなのに反映されない場合は、注文番号を添えてサポートへご連絡ください。',
+      listTitle: '取引一覧',
+      count: '{count} 件の記録が見つかりました',
+      orderId: '取引番号',
+      action: '種別',
+      amount: '支払金額',
+      channel: '決済ゲートウェイ',
+      created: '作成日時',
+      status: '注文状態',
+      continuePay: '支払いを続行',
+      empty: '取引記録はありません。',
+    },
+    usage: {
+      heroTag: '監視',
+      heroTitle: 'API リソース消費を明確に把握する',
+      heroBody: '音声リクエストと翻訳呼び出しの詳細を追跡します。想定以上に消費が早い場合は、クライアント側で VAD 感度を調整してください。',
+      summaryRequests: '成功応答',
+      summaryTotal: '総リクエスト数',
+      summaryQuotaUsed: '消費済みリソース',
+      summaryQuotaRemaining: '残り利用枠',
+      summaryAddonUsed: '消費済み予備リソース',
+      summaryAddonBalance: '予備リソース残量',
+      summaryExpiration: '有効期限',
+      summaryRange: '集計範囲',
+      detailsTitle: '呼び出しログ',
+      date: '日付',
+      success: '成功',
+      failed: '失敗 / 拒否',
+      limited: 'レート制限',
+      quotaUsed: '換算消費',
+      dailyRemaining: '日次残高',
+      empty: '指定した期間に利用記録はありません。',
+    },
+    errors: {
+      init: '認証サービスとのハンドシェイクに失敗しました。ページを再読み込みしてください。',
+      loadPortal: 'コンソールの同期に失敗しました。ネットワーク接続を確認してください。',
+      login: '認証失敗: メールアドレスまたはパスワードが正しくありません。',
+      register: '登録失敗: このメールアドレスはすでに使用されています。',
+      invalidCredentials: '認証失敗: メールアドレスまたはパスワードが正しくありません。',
+      emailRegistered: 'このメールアドレスはすでに登録されています。ログインしてください。',
+      userInactive: 'アクセス拒否: アカウントは停止されています。',
+      accountExpired: 'ご利用中のプランは期限切れです。',
+      mismatchAction: '取引設定エラー: 選択した操作とプランが一致しません。',
+      generic: 'ゲートウェイがタイムアウトしました。しばらくしてから再試行してください。',
+    },
+  },
+}
+
+function normalizeLocale(candidate: unknown): Locale {
+  if (candidate === 'en' || candidate === 'ja' || candidate === 'zh-CN') {
+    return candidate
+  }
+  if (candidate === 'zh' || candidate === 'zh_CN' || candidate === 'zh-CN') {
+    return 'zh-CN'
+  }
+  return FALLBACK_LOCALE
+}
+
+const initialLocale = (() => {
+  if (typeof window === 'undefined') {
+    return FALLBACK_LOCALE
+  }
+  const stored = window.localStorage.getItem(LOCALE_STORAGE_KEY)
+  if (stored) {
+    return normalizeLocale(stored)
+  }
+  return normalizeLocale(window.navigator.language)
+})()
+
+export const locale = ref<Locale>(initialLocale)
+
+if (typeof window !== 'undefined') {
+  watch(
+    locale,
+    (value) => {
+      window.localStorage.setItem(LOCALE_STORAGE_KEY, value)
+      document.documentElement.lang = value
+    },
+    { immediate: true },
+  )
+}
+
+function resolveMessage(target: MessageNode, path: string): MessageValue | undefined {
+  return path.split('.').reduce<MessageValue | undefined>((current, key) => {
+    if (!current || typeof current === 'string') {
+      return undefined
+    }
+    return current[key]
+  }, target)
+}
+
+function interpolate(template: string, params?: Record<string, Primitive>): string {
+  if (!params) {
+    return template
+  }
+  return template.replace(/\{(\w+)\}/g, (_, key: string) => {
+    const value = params[key]
+    return value === undefined || value === null ? '' : String(value)
+  })
+}
+
+export function t(key: string, params?: Record<string, Primitive>): string {
+  const localized = resolveMessage(messages[locale.value], key)
+  const fallback = resolveMessage(messages[FALLBACK_LOCALE], key)
+  const value = typeof localized === 'string' ? localized : typeof fallback === 'string' ? fallback : key
+  return interpolate(value, params)
+}
+
+export function setLocale(nextLocale: Locale) {
+  locale.value = nextLocale
+}
+
+export function formatNumber(value: number, options?: Intl.NumberFormatOptions): string {
+  return new Intl.NumberFormat(locale.value, options).format(value)
+}
+
+export function formatCurrency(value: number, currency = 'CNY'): string {
+  return new Intl.NumberFormat(locale.value, {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)
+}
+
+export function formatDate(value: string | Date | null | undefined): string {
+  if (!value) {
+    return '-'
+  }
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return '-'
+  }
+  return new Intl.DateTimeFormat(locale.value, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+}
+
+export function formatDateTime(value: string | Date | null | undefined): string {
+  if (!value) {
+    return '-'
+  }
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return '-'
+  }
+  return new Intl.DateTimeFormat(locale.value, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
+export const localeOptions: { value: Locale; labelKey: string }[] = [
+  { value: 'zh-CN', labelKey: 'locale.zh-CN' },
+  { value: 'en', labelKey: 'locale.en' },
+  { value: 'ja', labelKey: 'locale.ja' },
+]
+
+export type LocalizedApiError = {
+  status?: number
+  code?: string
+  message?: string
+}
+
+const apiMessageKeyMap: Record<string, string> = {
+  Invalid_credentials: 'errors.invalidCredentials',
+  Invalid_credentials_: 'errors.invalidCredentials',
+  'Invalid credentials': 'errors.invalidCredentials',
+  'Email already registered': 'errors.emailRegistered',
+  'User is inactive': 'errors.userInactive',
+  'User account expired': 'errors.accountExpired',
+  'Selected action does not match the target amount': 'errors.mismatchAction',
+}
+
+export function translateApiError(error: LocalizedApiError | null | undefined, fallbackKey = 'errors.generic'): string {
+  if (!error) {
+    return t(fallbackKey)
+  }
+  if (error.code === 'account_expired') {
+    return t('errors.accountExpired')
+  }
+  const mapped = error.message ? apiMessageKeyMap[error.message] : undefined
+  if (mapped) {
+    return t(mapped)
+  }
+  return error.message || t(fallbackKey)
+}
+
+export function useI18n() {
+  return {
+    locale,
+    localeOptions,
+    t,
+    setLocale,
+    formatNumber,
+    formatCurrency,
+    formatDate,
+    formatDateTime,
+  }
+}

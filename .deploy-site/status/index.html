@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta
+    name="description"
+    content="VoiceLinkVR 平台运行状态与事件监控，实时追踪 API 网关、翻译节点与云端数据库的健康状况。"
+  >
+  <title>VoiceLinkVR | 平台运行状态</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/site.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="site-header compact">
+      <a class="brand" href="../index.html" aria-label="返回首页">
+        <span class="brand-mark">V</span>
+        <span class="brand-text">
+          <strong>VoiceLinkVR</strong>
+          <small>Platform Status</small>
+        </span>
+      </a>
+
+      <nav class="site-nav static-nav">
+        <a href="../index.html">返回首页</a>
+        <a href="../app/">控制台</a>
+      </nav>
+    </header>
+
+    <main class="section status-main">
+      <section class="status-hero glass-card">
+        <div>
+          <p class="eyebrow">Live Platform Health</p>
+          <h1 id="overall-title">VoiceLinkVR 平台运行状态</h1>
+          <p id="overall-message">实时监控 API 网关、翻译节点与云端数据库的健康状况。</p>
+        </div>
+
+        <div class="status-actions">
+          <span id="overall-badge" class="status-badge status-loading">加载中</span>
+          <button id="refresh-button" class="button secondary" type="button">立即刷新</button>
+        </div>
+      </section>
+
+      <section class="stats-grid" id="summary-stats">
+        <article class="stat-card">
+          <span>最后更新</span>
+          <strong id="stat-updated">--</strong>
+        </article>
+        <article class="stat-card">
+          <span>服务节点数</span>
+          <strong id="stat-services">--</strong>
+        </article>
+        <article class="stat-card">
+          <span>平均响应延迟</span>
+          <strong id="stat-latency">--</strong>
+        </article>
+        <article class="stat-card">
+          <span>近 30 天可用率</span>
+          <strong id="stat-uptime">--</strong>
+        </article>
+      </section>
+
+      <section class="section-heading status-section-heading">
+        <div>
+          <p class="eyebrow">Service Topology</p>
+          <h2>平台服务矩阵</h2>
+        </div>
+        <small id="api-base-note">Data Source: VoiceLinkVR Platform</small>
+      </section>
+      <section id="services-grid" class="service-grid"></section>
+
+      <section class="section-heading status-section-heading">
+        <div>
+          <p class="eyebrow">Incidents</p>
+          <h2>维护与事件记录</h2>
+        </div>
+      </section>
+      <section id="incident-list" class="incident-list"></section>
+    </main>
+  </div>
+
+  <script src="../assets/js/status-config.js"></script>
+  <script src="../assets/js/status-page.js"></script>
+</body>
+</html>

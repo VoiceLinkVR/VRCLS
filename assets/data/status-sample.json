@@ -1,0 +1,69 @@
+{
+  "updatedAt": "2026-03-10T00:30:00+08:00",
+  "overall": {
+    "title": "VRCLS 开发者服务状态",
+    "message": "当前核心服务均可用，翻译工作节点存在短时波动但已恢复。",
+    "status": "operational",
+    "uptime30d": 99.93
+  },
+  "services": [
+    {
+      "id": "web-api",
+      "name": "公开 API",
+      "description": "登录、翻译与识别网关入口。",
+      "status": "operational",
+      "region": "CN-HK",
+      "responseTimeMs": 132,
+      "uptime30d": 99.97,
+      "lastCheckedAt": "2026-03-10T00:29:40+08:00",
+      "publicEndpoint": "https://status.example.com/api/status/public"
+    },
+    {
+      "id": "worker",
+      "name": "翻译工作节点",
+      "description": "处理远程翻译与队列任务。",
+      "status": "operational",
+      "region": "CN-HK",
+      "responseTimeMs": 178,
+      "uptime30d": 99.88,
+      "lastCheckedAt": "2026-03-10T00:29:41+08:00",
+      "publicEndpoint": "Internal worker"
+    },
+    {
+      "id": "storage",
+      "name": "状态数据存储",
+      "description": "用于状态快照、事件与探测结果存放。",
+      "status": "operational",
+      "region": "CN-HK",
+      "responseTimeMs": 26,
+      "uptime30d": 99.95,
+      "lastCheckedAt": "2026-03-10T00:29:41+08:00",
+      "publicEndpoint": "Private network"
+    }
+  ],
+  "incidents": [
+    {
+      "id": "incident-20260308-worker",
+      "title": "翻译工作节点延迟上升",
+      "summary": "工作节点在高峰时段出现响应时间增长，用户偶发看到翻译等待变长。",
+      "impact": "minor",
+      "status": "resolved",
+      "startedAt": "2026-03-08T19:40:00+08:00",
+      "resolvedAt": "2026-03-08T20:25:00+08:00",
+      "updates": [
+        {
+          "at": "2026-03-08T19:46:00+08:00",
+          "message": "确认工作节点 CPU 占用偏高，已开始限制批量任务并排查。"
+        },
+        {
+          "at": "2026-03-08T20:05:00+08:00",
+          "message": "扩容一个备用节点，队列开始回落。"
+        },
+        {
+          "at": "2026-03-08T20:25:00+08:00",
+          "message": "监控恢复正常，事件关闭。"
+        }
+      ]
+    }
+  ]
+}

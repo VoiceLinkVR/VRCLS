@@ -1,0 +1,33 @@
+{
+  "site": {
+    "title": "VRCLS 开发者服务状态",
+    "message": "这里展示开发者服务器的公开运行情况。",
+    "publicOrigin": "*",
+    "refreshIntervalMs": 60000,
+    "port": 8787
+  },
+  "services": [
+    {
+      "id": "voice-api",
+      "name": "Voice API",
+      "description": "登录、识别、翻译的统一入口。",
+      "probeUrl": "https://example.com/healthz",
+      "publicEndpoint": "https://api.example.com",
+      "method": "GET",
+      "timeoutMs": 6000,
+      "expectedStatus": 200,
+      "region": "CN-HK"
+    },
+    {
+      "id": "worker",
+      "name": "Translation Worker",
+      "description": "异步翻译工作节点。",
+      "probeUrl": "https://worker.example.com/healthz",
+      "publicEndpoint": "Internal worker",
+      "method": "GET",
+      "timeoutMs": 6000,
+      "expectedStatus": 200,
+      "region": "CN-HK"
+    }
+  ]
+}

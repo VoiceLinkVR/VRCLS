@@ -1,0 +1,12 @@
+{
+  "name": "vrcls-status-api-demo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Public status API demo for the VRCLS website",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
