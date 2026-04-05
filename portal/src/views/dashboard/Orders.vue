@@ -26,7 +26,7 @@ const statusClassMap = computed(() => ({
         </p>
       </div>
 
-      <router-link to="/app/sponsor" class="btn btn-primary">{{ t('common.openBilling') }}</router-link>
+      <router-link to="/billing" class="btn btn-primary">{{ t('common.openBilling') }}</router-link>
     </section>
 
     <section class="table-wrap glass-panel">

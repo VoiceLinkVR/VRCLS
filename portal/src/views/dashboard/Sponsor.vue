@@ -394,7 +394,7 @@ async function createOrder() {
     <section class="pending-card glass-panel">
       <div class="section-head">
         <h3>{{ t('billing.pendingTitle') }}</h3>
-        <router-link to="/app/orders">{{ t('billing.goOrders') }}</router-link>
+      <router-link to="/orders">{{ t('billing.goOrders') }}</router-link>
       </div>
 
       <div v-if="userStore.pendingOrders.length === 0" class="pending-empty">

@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '../stores/user'
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
@@ -17,10 +17,26 @@ const router = createRouter({
       meta: { titleKey: 'route.auth' },
     },
     {
-      path: '/app',
+      path: '/authorize',
+      name: 'authorize',
+      component: () => import('../views/Authorize.vue'),
+      meta: { requiresAuth: true, title: '控制台授权登录' },
+    },
+    {
+      path: '/reset-password',
+      name: 'reset-password',
+      component: () => import('../views/ResetPassword.vue'),
+      meta: { title: '重置密码' },
+    },
+    {
+      path: '/verify-email',
+      name: 'verify-email',
+      component: () => import('../views/VerifyEmail.vue'),
+      meta: { title: '验证邮箱' },
+    },
+    {
+      path: '/',
       component: () => import('../layouts/DashboardLayout.vue'),
-      redirect: '/app/overview',
-      meta: { requiresAuth: true, titleKey: 'route.overview' },
       children: [
         {
           path: 'overview',
@@ -29,8 +45,8 @@ const router = createRouter({
           meta: { requiresAuth: true, titleKey: 'route.overview' },
         },
         {
-          path: 'sponsor',
-          name: 'sponsor',
+          path: 'billing',
+          name: 'billing',
           component: () => import('../views/dashboard/Sponsor.vue'),
           meta: { requiresAuth: true, titleKey: 'route.billing' },
         },
@@ -45,6 +61,18 @@ const router = createRouter({
           name: 'usage',
           component: () => import('../views/dashboard/Usage.vue'),
           meta: { requiresAuth: true, titleKey: 'route.usage' },
+        },
+        {
+          path: 'security',
+          name: 'security',
+          component: () => import('../views/dashboard/Security.vue'),
+          meta: { requiresAuth: true, title: '账户安全' },
+        },
+        {
+          path: 'email',
+          name: 'email',
+          component: () => import('../views/dashboard/Email.vue'),
+          meta: { requiresAuth: true, title: '邮箱设置' },
         },
       ],
     },
@@ -70,7 +98,8 @@ router.beforeEach(async (to) => {
   }
 
   if (to.path === '/auth' && userStore.isAuthenticated) {
-    return '/app/overview'
+    const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : '/overview'
+    return redirect
   }
 
   return true

@@ -89,7 +89,7 @@ const events = computed(() => [
         </p>
       </div>
 
-      <router-link to="/app/sponsor" class="btn btn-primary">{{ t('overview.alertAction') }}</router-link>
+          <router-link to="/billing" class="btn btn-primary">{{ t('overview.alertAction') }}</router-link>
     </section>
 
     <section class="stats-grid">
@@ -125,7 +125,7 @@ const events = computed(() => [
       <article class="insight-card glass-panel">
         <div class="insight-head">
           <h3>{{ t('overview.directionTitle') }}</h3>
-          <router-link to="/app/usage">{{ t('overview.gotoUsage') }}</router-link>
+          <router-link to="/usage">{{ t('overview.gotoUsage') }}</router-link>
         </div>
         <p class="insight-copy">
           {{ t('overview.directionBody') }}

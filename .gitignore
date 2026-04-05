@@ -1,3 +1,4 @@
 node_modules/
 *.log
+dist-sites/
 status-api-demo/services.json

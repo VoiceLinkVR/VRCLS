@@ -23,6 +23,7 @@ type PortalProfileResponse = {
   username: string
   displayName: string
   email: string
+  emailVerified: boolean
   planName: string
   planPrice: number
   accountStatus: string
@@ -99,6 +100,27 @@ type PortalOrderIntentResponse = {
   payUrl: string
 }
 
+type PortalActionResponse = {
+  message: string
+  nextUrl: string
+  token: string
+}
+
+export type DeviceAuthorizationRequest = {
+  user_code: string
+  client_name: string
+  requested_scope: string
+  status: string
+  expires_at: string
+  username: string
+  display_name: string
+}
+
+type DeviceAuthorizationDecisionResponse = {
+  message: string
+  status: string
+}
+
 export type AccountUsageDailyStat = {
   date: string
   daily_success_count: number
@@ -148,6 +170,7 @@ export type UserProfile = {
   username: string
   name: string
   email: string
+  emailVerified: boolean
   planName: string
   planPrice: number
   accountStatus: string
@@ -230,6 +253,7 @@ function toProfile(authUser: AuthUser, currentProfile?: UserProfile | null): Use
     username: authUser.username,
     name: authUser.display_name || authUser.username,
     email: authUser.email,
+    emailVerified: authUser.email_verified,
     planName: currentProfile?.planName ?? '',
     planPrice: currentProfile?.planPrice ?? 0,
     accountStatus: currentProfile?.accountStatus ?? 'active',
@@ -333,6 +357,7 @@ export const useUserStore = defineStore('user', () => {
       username: portalProfile.username,
       name: portalProfile.displayName || portalProfile.username,
       email: portalProfile.email,
+      emailVerified: portalProfile.emailVerified,
       planName: portalProfile.planName,
       planPrice: portalProfile.planPrice,
       accountStatus: portalProfile.accountStatus,
@@ -454,16 +479,71 @@ export const useUserStore = defineStore('user', () => {
     return response
   }
 
+  async function changePassword(currentPassword: string, newPassword: string) {
+    return await requestJson<PortalActionResponse>('/api/account/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    })
+  }
+
+  async function bindEmail(email: string) {
+    const response = await requestJson<PortalActionResponse>('/api/account/bind-email', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+    await refreshData()
+    return response
+  }
+
+  async function verifyEmail(token: string) {
+    const response = await requestJson<PortalActionResponse>('/api/account/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    })
+    await bootstrap(true)
+    return response
+  }
+
+  async function forgotPassword(email: string) {
+    return await requestJson<PortalActionResponse>('/api/account/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+  }
+
+  async function resetPassword(token: string, password: string) {
+    return await requestJson<PortalActionResponse>('/api/account/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
+    })
+  }
+
+  async function loadDeviceAuthorization(userCode: string) {
+    return await requestJson<DeviceAuthorizationRequest>(`/auth/device/requests/${encodeURIComponent(userCode)}`)
+  }
+
+  async function decideDeviceAuthorization(userCode: string, decision: 'approve' | 'deny') {
+    return await requestJson<DeviceAuthorizationDecisionResponse>('/auth/device/authorize', {
+      method: 'POST',
+      body: JSON.stringify({ user_code: userCode, decision }),
+    })
+  }
+
   return {
     authError,
     beginCheckout,
+    bindEmail,
     billingGuide,
     bootstrap,
+    changePassword,
     currentPlanPrice,
     dailyLimit,
+    decideDeviceAuthorization,
     entitlements,
+    forgotPassword,
     initialized,
     isAuthenticated,
+    loadDeviceAuthorization,
     loading,
     login,
     logout,
@@ -475,6 +555,7 @@ export const useUserStore = defineStore('user', () => {
     refreshData,
     register,
     remainingQuota,
+    resetPassword,
     requestSuccess,
     requestSuccessPercent,
     requestTotal,
@@ -482,5 +563,6 @@ export const useUserStore = defineStore('user', () => {
     usedQuota,
     usage,
     loadUsage,
+    verifyEmail,
   }
 })

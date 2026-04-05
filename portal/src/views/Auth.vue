@@ -29,7 +29,7 @@ const submitLabel = computed(() =>
 
 const redirectTarget = computed(() => {
   const redirect = route.query.redirect
-  return typeof redirect === 'string' ? redirect : '/app/overview'
+  return typeof redirect === 'string' ? redirect : '/overview'
 })
 
 async function handleSubmit() {
@@ -142,6 +142,7 @@ async function handleSubmit() {
           </button>
         </form>
 
+        <router-link to="/reset-password" class="back-home">忘记密码？</router-link>
         <router-link to="/" class="back-home">{{ t('common.backHome') }}</router-link>
       </div>
     </section>

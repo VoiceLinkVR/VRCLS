@@ -19,15 +19,23 @@ const mobileMenuOpen = ref(false)
 const { t } = useI18n()
 
 const menuItems = computed<MenuItem[]>(() => [
-  { to: '/app/overview', label: t('nav.overview'), icon: 'OV' },
-  { to: '/app/sponsor', label: t('nav.billing'), icon: 'BI' },
-  { to: '/app/orders', label: t('nav.orders'), icon: 'OR' },
-  { to: '/app/usage', label: t('nav.usage'), icon: 'US' },
+  { to: '/overview', label: t('nav.overview'), icon: 'OV' },
+  { to: '/billing', label: t('nav.billing'), icon: 'BI' },
+  { to: '/orders', label: t('nav.orders'), icon: 'OR' },
+  { to: '/usage', label: t('nav.usage'), icon: 'US' },
+  { to: '/security', label: '账户安全', icon: 'SE' },
+  { to: '/email', label: '邮箱设置', icon: 'EM' },
 ])
 
-const currentTitle = computed(() =>
-  typeof route.meta.titleKey === 'string' ? t(route.meta.titleKey) : t('route.overview'),
-)
+const currentTitle = computed(() => {
+  if (typeof route.meta.titleKey === 'string') {
+    return t(route.meta.titleKey)
+  }
+  if (typeof route.meta.title === 'string') {
+    return route.meta.title
+  }
+  return t('route.overview')
+})
 const currentPlanLabel = computed(() =>
   `${t('common.currentPlan')}: ${formatPlanLabel(userStore.currentPlanPrice)}`,
 )
@@ -89,7 +97,7 @@ async function logout() {
         <div class="sponsor-promo glass-panel">
           <p>{{ remainingQuotaText }} / {{ formatNumber(userStore.dailyLimit) }}</p>
           <span>{{ t('nav.promoTitle') }} {{ t('nav.promoBody') }}</span>
-          <router-link to="/app/sponsor" class="btn btn-primary w-full" @click="closeMenu">
+          <router-link to="/billing" class="btn btn-primary w-full" @click="closeMenu">
             {{ t('common.openBilling') }}
           </router-link>
         </div>

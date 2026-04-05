@@ -7,7 +7,7 @@ import { useUserStore } from '../stores/user'
 const userStore = useUserStore()
 const { t } = useI18n()
 
-const primaryRoute = computed(() => (userStore.isAuthenticated ? '/app/overview' : '/auth'))
+const primaryRoute = computed(() => (userStore.isAuthenticated ? '/overview' : '/auth'))
 
 const featureCards = computed(() =>[
   {
