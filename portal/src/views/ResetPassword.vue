@@ -1,35 +1,28 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref } from 'vue'
 import { useUserStore } from '../stores/user'
 
-const route = useRoute()
-const router = useRouter()
 const userStore = useUserStore()
 
 const email = ref('')
-const token = ref(typeof route.query.token === 'string' ? route.query.token : '')
+const token = ref('')
+const code = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 const loading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 
-const hasToken = computed(() => Boolean(token.value.trim()))
-
-async function requestToken() {
+async function requestCode() {
   loading.value = true
   errorMessage.value = ''
   successMessage.value = ''
   try {
     const response = await userStore.forgotPassword(email.value.trim())
-    successMessage.value = response.message
-    if (response.token) {
-      token.value = response.token
-      await router.replace({ path: '/reset-password', query: { token: response.token } })
-    }
+    token.value = response.token
+    successMessage.value = '验证码已发送，如果邮箱存在且已验证，请检查收件箱。'
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '生成重置链接失败。'
+    errorMessage.value = error instanceof Error ? error.message : '发送验证码失败。'
   } finally {
     loading.value = false
   }
@@ -44,12 +37,16 @@ async function resetPassword() {
     errorMessage.value = '两次输入的新密码不一致。'
     return
   }
+  if (!token.value) {
+    errorMessage.value = '请先发送验证码。'
+    return
+  }
 
   loading.value = true
   errorMessage.value = ''
   successMessage.value = ''
   try {
-    const response = await userStore.resetPassword(token.value.trim(), password.value)
+    const response = await userStore.resetPassword(token.value, code.value.trim(), password.value)
     successMessage.value = response.message
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '重置密码失败。'
@@ -63,22 +60,19 @@ async function resetPassword() {
   <div class="single-page">
     <section class="glass-panel single-card">
       <p class="eyebrow">Reset Password</p>
-      <h1>重置密码</h1>
+      <h1>邮箱验证码找回密码</h1>
 
-      <form v-if="!hasToken" class="form-grid" @submit.prevent="requestToken">
+      <form class="form-grid" @submit.prevent="resetPassword">
         <label>
           <span>账户邮箱</span>
           <input v-model="email" class="input-field" type="email" autocomplete="email" required />
         </label>
-        <button class="btn btn-primary" type="submit" :disabled="loading">
-          {{ loading ? '处理中...' : '生成重置链接' }}
+        <button class="btn btn-outline" type="button" :disabled="loading" @click="requestCode">
+          {{ loading ? '处理中...' : '发送验证码' }}
         </button>
-      </form>
-
-      <form v-else class="form-grid" @submit.prevent="resetPassword">
         <label>
-          <span>重置 token</span>
-          <input v-model="token" class="input-field" type="text" required />
+          <span>邮箱验证码</span>
+          <input v-model="code" class="input-field" type="text" minlength="4" maxlength="16" required />
         </label>
         <label>
           <span>新密码</span>

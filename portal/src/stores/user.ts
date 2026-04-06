@@ -18,6 +18,12 @@ type AuthTokenResponse = {
   user: AuthUser
 }
 
+type AuthVerificationChallengeResponse = {
+  message: string
+  verification_token: string
+  expires_in: number
+}
+
 type PortalProfileResponse = {
   id: string
   username: string
@@ -104,6 +110,7 @@ type PortalActionResponse = {
   message: string
   nextUrl: string
   token: string
+  expiresIn: number
 }
 
 export type DeviceAuthorizationRequest = {
@@ -419,7 +426,20 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  async function register(email: string, password: string, displayName: string) {
+  async function sendRegisterCode(email: string) {
+    return await requestJson<AuthVerificationChallengeResponse>('/auth/register/send-code', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+  }
+
+  async function register(
+    email: string,
+    password: string,
+    displayName: string,
+    verificationToken: string,
+    verificationCode: string,
+  ) {
     loading.value = true
     authError.value = ''
     try {
@@ -429,6 +449,8 @@ export const useUserStore = defineStore('user', () => {
           email,
           password,
           display_name: displayName,
+          verification_token: verificationToken,
+          verification_code: verificationCode,
         }),
       })
       applyAuthUser(response.user)
@@ -479,10 +501,20 @@ export const useUserStore = defineStore('user', () => {
     return response
   }
 
-  async function changePassword(currentPassword: string, newPassword: string) {
+  async function sendChangePasswordCode() {
+    return await requestJson<PortalActionResponse>('/api/account/change-password/send-code', {
+      method: 'POST',
+    })
+  }
+
+  async function changePasswordWithCode(
+    verificationToken: string,
+    verificationCode: string,
+    newPassword: string,
+  ) {
     return await requestJson<PortalActionResponse>('/api/account/change-password', {
       method: 'POST',
-      body: JSON.stringify({ currentPassword, newPassword }),
+      body: JSON.stringify({ verificationToken, verificationCode, newPassword }),
     })
   }
 
@@ -495,10 +527,10 @@ export const useUserStore = defineStore('user', () => {
     return response
   }
 
-  async function verifyEmail(token: string) {
+  async function verifyEmail(token: string, code: string) {
     const response = await requestJson<PortalActionResponse>('/api/account/verify-email', {
       method: 'POST',
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ token, code }),
     })
     await bootstrap(true)
     return response
@@ -511,10 +543,10 @@ export const useUserStore = defineStore('user', () => {
     })
   }
 
-  async function resetPassword(token: string, password: string) {
+  async function resetPassword(token: string, code: string, password: string) {
     return await requestJson<PortalActionResponse>('/api/account/reset-password', {
       method: 'POST',
-      body: JSON.stringify({ token, password }),
+      body: JSON.stringify({ token, code, password }),
     })
   }
 
@@ -535,7 +567,7 @@ export const useUserStore = defineStore('user', () => {
     bindEmail,
     billingGuide,
     bootstrap,
-    changePassword,
+    changePasswordWithCode,
     currentPlanPrice,
     dailyLimit,
     decideDeviceAuthorization,
@@ -556,6 +588,8 @@ export const useUserStore = defineStore('user', () => {
     register,
     remainingQuota,
     resetPassword,
+    sendChangePasswordCode,
+    sendRegisterCode,
     requestSuccess,
     requestSuccessPercent,
     requestTotal,

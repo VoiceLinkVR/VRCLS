@@ -13,10 +13,16 @@ const userStore = useUserStore()
 const { t } = useI18n()
 
 const authMode = ref<Mode>('login')
+const registerChallengeToken = ref('')
+const registerChallengeExpiresIn = ref(0)
+const challengeLoading = ref(false)
+const challengeMessage = ref('')
+
 const form = ref({
   displayName: '',
   email: '',
   password: '',
+  verificationCode: '',
 })
 
 const title = computed(() =>
@@ -32,6 +38,25 @@ const redirectTarget = computed(() => {
   return typeof redirect === 'string' ? redirect : '/overview'
 })
 
+async function sendRegisterCode() {
+  if (!form.value.email.trim() || challengeLoading.value) {
+    return
+  }
+
+  challengeLoading.value = true
+  challengeMessage.value = ''
+  try {
+    const response = await userStore.sendRegisterCode(form.value.email.trim())
+    registerChallengeToken.value = response.verification_token
+    registerChallengeExpiresIn.value = response.expires_in
+    challengeMessage.value = '验证码已发送，请检查邮箱。'
+  } catch (error) {
+    challengeMessage.value = error instanceof Error ? error.message : '验证码发送失败。'
+  } finally {
+    challengeLoading.value = false
+  }
+}
+
 async function handleSubmit() {
   if (userStore.loading) {
     return
@@ -39,10 +64,16 @@ async function handleSubmit() {
 
   try {
     if (authMode.value === 'register') {
+      if (!registerChallengeToken.value) {
+        challengeMessage.value = '请先发送注册验证码。'
+        return
+      }
       await userStore.register(
         form.value.email.trim(),
         form.value.password,
         form.value.displayName.trim() || form.value.email.split('@')[0] || 'VoiceLinkVR User',
+        registerChallengeToken.value,
+        form.value.verificationCode.trim(),
       )
     } else {
       await userStore.login(form.value.email.trim(), form.value.password)
@@ -134,6 +165,28 @@ async function handleSubmit() {
               required
             />
           </label>
+
+          <template v-if="authMode === 'register'">
+            <label class="input-group">
+              <span>邮箱验证码</span>
+              <div class="inline-row">
+                <input
+                  v-model="form.verificationCode"
+                  type="text"
+                  class="input-field"
+                  placeholder="输入邮箱中的验证码"
+                  minlength="4"
+                  maxlength="16"
+                  required
+                />
+                <button class="btn btn-outline" type="button" :disabled="challengeLoading" @click="sendRegisterCode">
+                  {{ challengeLoading ? '发送中...' : '发送验证码' }}
+                </button>
+              </div>
+            </label>
+            <p v-if="challengeMessage" class="helper-copy">{{ challengeMessage }}</p>
+            <p v-if="registerChallengeExpiresIn" class="helper-copy">验证码有效期 {{ Math.floor(registerChallengeExpiresIn / 60) }} 分钟。</p>
+          </template>
 
           <p v-if="userStore.authError" class="error-copy">{{ userStore.authError }}</p>
 
@@ -303,6 +356,17 @@ async function handleSubmit() {
   font-size: 0.9rem;
 }
 
+.inline-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+.helper-copy {
+  margin-bottom: 12px;
+  color: var(--text-muted);
+}
+
 .error-copy {
   margin-bottom: 16px;
   color: #ffb4b4;
@@ -328,6 +392,10 @@ async function handleSubmit() {
 @media (max-width: 720px) {
   .aside-head {
     flex-direction: column;
+  }
+
+  .inline-row {
+    grid-template-columns: 1fr;
   }
 }
 

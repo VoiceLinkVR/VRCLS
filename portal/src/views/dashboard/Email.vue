@@ -5,30 +5,54 @@ import { useUserStore } from '../../stores/user'
 const userStore = useUserStore()
 
 const email = ref(userStore.profile?.email ?? '')
+const verificationToken = ref('')
+const verificationCode = ref('')
 const loading = ref(false)
+const verifyLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
-const verificationUrl = ref('')
 
 const currentEmail = computed(() => userStore.profile?.email || '未绑定')
-const emailVerified = computed(() => (userStore.profile as { emailVerified?: boolean } | null)?.emailVerified ?? false)
+const emailVerified = computed(() => userStore.profile?.emailVerified ?? false)
 
-async function handleBindEmail() {
+async function sendCode() {
   if (loading.value) {
     return
   }
   loading.value = true
   errorMessage.value = ''
   successMessage.value = ''
-  verificationUrl.value = ''
   try {
     const response = await userStore.bindEmail(email.value.trim())
-    successMessage.value = response.message
-    verificationUrl.value = response.nextUrl
+    verificationToken.value = response.token
+    successMessage.value = '验证码已发送，请检查目标邮箱。'
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '保存邮箱失败。'
+    errorMessage.value = error instanceof Error ? error.message : '发送验证码失败。'
   } finally {
     loading.value = false
+  }
+}
+
+async function verifyCode() {
+  if (verifyLoading.value) {
+    return
+  }
+  if (!verificationToken.value) {
+    errorMessage.value = '请先发送验证码。'
+    return
+  }
+
+  verifyLoading.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
+  try {
+    const response = await userStore.verifyEmail(verificationToken.value, verificationCode.value.trim())
+    successMessage.value = response.message
+    verificationCode.value = ''
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '邮箱验证失败。'
+  } finally {
+    verifyLoading.value = false
   }
 }
 </script>
@@ -55,26 +79,31 @@ async function handleBindEmail() {
       </div>
 
       <p class="panel-copy">
-        当前后端会生成验证 token 并返回跳转地址，等正式邮件服务接入后，这里可以直接切到邮件投递模式。
+        旧用户如果还没有绑定邮箱，后续无法使用验证码注册找回、验证码改密和邮箱安全通知。请先完成绑定并验证。
       </p>
 
-      <form class="form-grid" @submit.prevent="handleBindEmail">
+      <form class="form-grid" @submit.prevent="verifyCode">
         <label>
-          <span>新邮箱地址</span>
+          <span>目标邮箱地址</span>
           <input v-model="email" class="input-field" type="email" autocomplete="email" required />
         </label>
+
+        <div class="inline-row">
+          <label>
+            <span>邮箱验证码</span>
+            <input v-model="verificationCode" class="input-field" type="text" minlength="4" maxlength="16" required />
+          </label>
+          <button class="btn btn-outline send-btn" type="button" :disabled="loading" @click="sendCode">
+            {{ loading ? '发送中...' : '发送验证码' }}
+          </button>
+        </div>
 
         <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
         <p v-if="successMessage" class="success-text">{{ successMessage }}</p>
 
-        <div class="action-row">
-          <button class="btn btn-primary" type="submit" :disabled="loading">
-            {{ loading ? '提交中...' : '保存并生成验证链接' }}
-          </button>
-          <RouterLink v-if="verificationUrl" class="btn btn-outline" :to="verificationUrl">
-            立即验证邮箱
-          </RouterLink>
-        </div>
+        <button class="btn btn-primary" type="submit" :disabled="verifyLoading">
+          {{ verifyLoading ? '验证中...' : '确认绑定邮箱' }}
+        </button>
       </form>
     </section>
   </section>
@@ -118,10 +147,15 @@ async function handleBindEmail() {
   gap: 8px;
 }
 
-.action-row {
-  display: flex;
-  flex-wrap: wrap;
+.inline-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
+  align-items: end;
+}
+
+.send-btn {
+  min-height: 46px;
 }
 
 .error-text {
@@ -133,7 +167,8 @@ async function handleBindEmail() {
 }
 
 @media (max-width: 720px) {
-  .summary-row {
+  .summary-row,
+  .inline-row {
     grid-template-columns: 1fr;
   }
 }

@@ -40,6 +40,7 @@ const currentPlanLabel = computed(() =>
   `${t('common.currentPlan')}: ${formatPlanLabel(userStore.currentPlanPrice)}`,
 )
 const remainingQuotaText = computed(() => formatNumber(userStore.remainingQuota))
+const needsEmailBinding = computed(() => !userStore.profile?.email || !userStore.profile?.emailVerified)
 
 function closeMenu() {
   mobileMenuOpen.value = false
@@ -127,6 +128,13 @@ async function logout() {
       </header>
 
       <section class="page-container">
+        <div v-if="needsEmailBinding" class="email-banner glass-panel">
+          <div>
+            <strong>请先完成邮箱绑定</strong>
+            <p>旧账号如果没有绑定并验证邮箱，将无法使用验证码注册协同、找回密码和邮箱验证码改密。</p>
+          </div>
+          <router-link to="/email" class="btn btn-primary">去绑定邮箱</router-link>
+        </div>
         <RouterView />
       </section>
     </main>
@@ -365,6 +373,21 @@ async function logout() {
   padding-right: 4px;
 }
 
+.email-banner {
+  margin-bottom: 16px;
+  padding: 18px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  border-color: rgba(255, 196, 91, 0.28);
+}
+
+.email-banner p {
+  margin-top: 6px;
+  color: var(--text-muted);
+}
+
 @media (max-width: 1080px) {
   .dashboard-shell {
     padding: 14px;
@@ -402,9 +425,15 @@ async function logout() {
     align-items: stretch;
   }
 
+  .email-banner,
   .topbar-main,
   .user-info {
     justify-content: space-between;
+  }
+
+  .email-banner {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .plan-tag {
