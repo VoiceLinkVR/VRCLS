@@ -48,6 +48,7 @@ body {
 
 button,
 input,
+textarea,
 select {
   font: inherit;
 }
@@ -366,12 +367,25 @@ pre {
   border-collapse: collapse;
 }
 
+.table-scroll {
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
 .data-table th,
 .data-table td {
   padding: 14px 12px;
   text-align: left;
   vertical-align: top;
   border-top: 1px solid var(--border-color);
+}
+
+.data-table th {
+  color: var(--text-soft);
+  font-size: 0.84rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .data-table tbody tr.selected {
@@ -387,12 +401,140 @@ pre {
   color: var(--text-muted);
   margin-top: 4px;
   font-size: 0.84rem;
-  word-break: break-all;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .actions-cell {
+  white-space: nowrap;
+}
+
+.actions-cell .btn + .btn {
+  margin-left: 10px;
+}
+
+.section-note {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+  line-height: 1.7;
+}
+
+.section-note strong {
+  color: var(--text-main);
+}
+
+.section-note span {
+  color: var(--text-soft);
+}
+
+.config-table {
+  min-width: 1240px;
+  table-layout: fixed;
+}
+
+.config-list-panel {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  height: clamp(520px, 62vh, 820px);
+  overflow: hidden;
+}
+
+.config-list-panel .section-head {
+  flex: 0 0 auto;
+}
+
+.config-table-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.config-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: rgba(15, 17, 26, 0.96);
+  box-shadow: inset 0 -1px 0 var(--border-color);
+}
+
+.config-table th:nth-child(1),
+.config-table td:nth-child(1) {
+  width: 21%;
+}
+
+.config-table th:nth-child(2),
+.config-table td:nth-child(2) {
+  width: 14%;
+}
+
+.config-table th:nth-child(3),
+.config-table td:nth-child(3),
+.config-table th:nth-child(4),
+.config-table td:nth-child(4) {
+  width: 20%;
+}
+
+.config-table th:nth-child(5),
+.config-table td:nth-child(5) {
+  width: 15%;
+}
+
+.config-table th:nth-child(6),
+.config-table td:nth-child(6) {
+  width: 10%;
+}
+
+.config-table td:nth-child(1) strong,
+.config-table td:nth-child(2) strong,
+.config-table td:nth-child(5) strong {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.config-table td:nth-child(2),
+.config-table td:nth-child(3),
+.config-table td:nth-child(4),
+.config-table td:nth-child(5) {
+  line-height: 1.6;
+}
+
+.config-table td:nth-child(2),
+.config-table td:nth-child(5) {
+  white-space: normal;
+}
+
+.config-table td:nth-child(3),
+.config-table td:nth-child(4),
+.audit-table td:nth-child(4),
+.audit-table td:nth-child(5) {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.audit-table {
+  min-width: 980px;
+  table-layout: fixed;
+}
+
+.audit-table th:nth-child(1),
+.audit-table td:nth-child(1) {
+  width: 18%;
+}
+
+.audit-table th:nth-child(2),
+.audit-table td:nth-child(2),
+.audit-table th:nth-child(3),
+.audit-table td:nth-child(3) {
+  width: 16%;
+}
+
+.audit-table th:nth-child(4),
+.audit-table td:nth-child(4),
+.audit-table th:nth-child(5),
+.audit-table td:nth-child(5) {
+  width: 25%;
 }
 
 .lookup-row {
@@ -407,6 +549,22 @@ pre {
 
 .slim-select {
   max-width: 320px;
+}
+
+.config-editor-wide {
+  grid-column: 1 / -1;
+}
+
+.config-textarea {
+  min-height: 200px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.config-meta-textarea {
+  min-height: 88px;
+  resize: none;
+  line-height: 1.6;
 }
 
 .result-grid {
@@ -490,7 +648,25 @@ pre {
     grid-template-columns: 1fr;
   }
 
+  .table-scroll {
+    margin: 0 -8px;
+    padding: 0 8px 6px;
+  }
+
+  .config-list-panel {
+    height: clamp(420px, 58vh, 680px);
+  }
+
   .actions-cell {
-    flex-direction: column;
+    white-space: normal;
+  }
+
+  .actions-cell .btn {
+    width: 100%;
+  }
+
+  .actions-cell .btn + .btn {
+    margin-top: 10px;
+    margin-left: 0;
   }
 }

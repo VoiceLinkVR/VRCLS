@@ -1,0 +1,120 @@
+- generic [ref=e44]:
+  - complementary [ref=e45]:
+    - generic [ref=e47]:
+      - paragraph [ref=e48]: VoiceLinkVR
+      - heading "VoiceLinkVR 控制台" [level=1] [ref=e49]
+    - generic [ref=e50]:
+      - generic [ref=e51]: 节点正常
+      - strong [ref=e52]: Codex Center User
+      - paragraph [ref=e53]: codex-1775523821@example.com
+      - generic [ref=e54]: "user_uuid: 0a81dc83"
+    - generic [ref=e55]:
+      - generic [ref=e56]: 语言
+      - combobox "语言" [ref=e57] [cursor=pointer]:
+        - option "中文" [selected]
+        - option "English"
+        - option "日本語"
+    - navigation [ref=e58]:
+      - link "UC 用户中心" [ref=e59] [cursor=pointer]:
+        - /url: /app/center
+        - generic [ref=e60]: UC
+        - generic [ref=e61]: 用户中心
+      - link "OV 服务总览" [ref=e62] [cursor=pointer]:
+        - /url: /app/overview
+        - generic [ref=e63]: OV
+        - generic [ref=e64]: 服务总览
+      - link "BI 订阅与额度" [ref=e65] [cursor=pointer]:
+        - /url: /app/billing
+        - generic [ref=e66]: BI
+        - generic [ref=e67]: 订阅与额度
+      - link "OR 账单明细" [ref=e68] [cursor=pointer]:
+        - /url: /app/orders
+        - generic [ref=e69]: OR
+        - generic [ref=e70]: 账单明细
+      - link "US API 监控" [ref=e71] [cursor=pointer]:
+        - /url: /app/usage
+        - generic [ref=e72]: US
+        - generic [ref=e73]: API 监控
+    - generic [ref=e74]:
+      - generic [ref=e75]:
+        - paragraph [ref=e76]: 800 / 800
+        - generic [ref=e77]: 翻译算力不足？ 及时补充云端算力，确保您的 VRC 社交实时字幕不中断。
+        - link "管理订阅" [ref=e78] [cursor=pointer]:
+          - /url: /app/billing
+      - button "退出登录" [ref=e79] [cursor=pointer]
+  - main [ref=e80]:
+    - generic [ref=e81]:
+      - generic [ref=e83]:
+        - paragraph [ref=e84]: 工作台
+        - heading "服务总览" [level=2] [ref=e85]
+      - generic [ref=e86]:
+        - generic [ref=e87]: "当前套餐: 免费额度"
+        - generic [ref=e88]: C
+    - generic [ref=e90]:
+      - generic [ref=e91]:
+        - article [ref=e92]:
+          - paragraph [ref=e93]: 显示名称
+          - strong [ref=e94]: Codex Center User
+          - text: 门户默认显示 display_name。
+        - article [ref=e95]:
+          - paragraph [ref=e96]: 用户标识
+          - strong [ref=e97]: 0a81dc83
+          - text: 0a81dc83-2852-4c45-a413-a00b05cef56e
+        - article [ref=e98]:
+          - paragraph [ref=e99]: 旧账号来源
+          - strong [ref=e100]: codex-1775523821
+          - text: 仅用于迁移说明和兼容场景。
+      - generic [ref=e101]:
+        - article [ref=e102]:
+          - generic [ref=e104]:
+            - paragraph [ref=e105]: 今日 API 请求数
+            - text: 今日成功处理的语音识别与翻译接口调用次数。
+          - generic [ref=e106]: 10 / 10
+          - paragraph [ref=e109]: 100%
+        - article [ref=e110]:
+          - generic [ref=e112]:
+            - paragraph [ref=e113]: 今日算力消耗
+            - text: 当前可用计算资源消耗进度。
+          - generic [ref=e114]: 0 / 800
+          - paragraph [ref=e116]: 0%
+        - article [ref=e117]:
+          - generic [ref=e119]:
+            - paragraph [ref=e120]: 备用算力包
+            - text: 日常额度耗尽后自动启动的备用资源。
+          - generic [ref=e121]: "0"
+      - generic [ref=e122]:
+        - article [ref=e123]:
+          - paragraph [ref=e124]: 当前订阅方案
+          - strong [ref=e125]: 免费额度
+          - text: 800/day
+        - article [ref=e126]:
+          - paragraph [ref=e127]: 剩余算力
+          - strong [ref=e128]: 800 / 800
+          - text: 当前资源充足，服务运行稳定。
+        - article [ref=e129]:
+          - paragraph [ref=e130]: 服务状态
+          - strong [ref=e131]: 运行中
+          - text: 暂无数据
+        - article [ref=e132]:
+          - paragraph [ref=e133]: 计费周期
+          - strong [ref=e134]: 2026-04-01 ~ 2026-04-07
+          - text: 请前往 API 监控面板查看详细消耗日志。
+      - generic [ref=e135]:
+        - article [ref=e136]:
+          - generic [ref=e137]:
+            - heading "引擎运行状态良好" [level=3] [ref=e138]
+            - link "查看 API 日志" [ref=e139] [cursor=pointer]:
+              - /url: /app/usage
+          - paragraph [ref=e140]: 您的控制台与 VRCLS 客户端通信正常。如遇翻译延迟或无响应，请优先在此检查可用额度是否充足。
+          - list [ref=e141]:
+            - listitem [ref=e142]: 套餐订阅或续期操作通常在 1 分钟内全局生效。
+            - listitem [ref=e143]: 请确保在支付时登录的是您正在使用的终端账户。
+            - listitem [ref=e144]: 为保护隐私，控制台仅保留最近 30 天的调用数据统计。
+        - article [ref=e145]:
+          - heading "系统公告" [level=3] [ref=e146]
+          - generic [ref=e149]:
+            - strong [ref=e150]: 支付网关升级完成
+            - paragraph [ref=e151]: 支付流程已进一步优化，网页端可直接拉起收银台，自动发放延迟缩短至秒级。
+          - generic [ref=e154]:
+            - strong [ref=e155]: 全景用量监控上线
+            - paragraph [ref=e156]: 新增精细化监控面板，可直观看到语音识别与语言翻译的具体算力消耗。

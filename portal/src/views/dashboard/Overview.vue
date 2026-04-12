@@ -34,6 +34,24 @@ const stats = computed(() => [
   },
 ])
 
+const identityFacts = computed(() => [
+  {
+    label: '显示名称',
+    value: userStore.profile?.name || t('common.noData'),
+    detail: userStore.profile?.migrationRequired ? '当前账户仍处于迁移流程中。' : '门户默认显示 display_name。',
+  },
+  {
+    label: '用户标识',
+    value: userStore.profile?.shortUserUuid || t('common.noData'),
+    detail: userStore.profile?.userUuid || 'user_uuid 将作为新体系的主身份字段。',
+  },
+  {
+    label: '旧账号来源',
+    value: userStore.profile?.legacyUsername || '未绑定',
+    detail: userStore.profile?.legacyUsername ? '仅用于迁移说明和兼容场景。' : '未绑定旧用户名。',
+  },
+])
+
 const quickFacts = computed(() => [
   {
     label: t('overview.factPlan'),
@@ -90,6 +108,14 @@ const events = computed(() => [
       </div>
 
           <router-link to="/billing" class="btn btn-primary">{{ t('overview.alertAction') }}</router-link>
+    </section>
+
+    <section class="stats-grid">
+      <article v-for="item in identityFacts" :key="item.label" class="identity-card glass-panel">
+        <p>{{ item.label }}</p>
+        <strong>{{ item.value }}</strong>
+        <span>{{ item.detail }}</span>
+      </article>
     </section>
 
     <section class="stats-grid">
@@ -194,6 +220,21 @@ const events = computed(() => [
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 24px;
+}
+
+.identity-card {
+  padding: 24px;
+}
+
+.identity-card p,
+.identity-card span {
+  color: var(--text-muted);
+}
+
+.identity-card strong {
+  display: block;
+  margin: 14px 0 10px;
+  font-size: 1.32rem;
 }
 
 .stat-card {

@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 
+const router = useRouter()
 const userStore = useUserStore()
 
 const email = ref('')
@@ -12,6 +14,34 @@ const confirmPassword = ref('')
 const loading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
+const redirectCountdown = ref(0)
+
+let redirectTimer: number | null = null
+
+function clearRedirectTimer() {
+  if (redirectTimer) {
+    window.clearInterval(redirectTimer)
+    redirectTimer = null
+  }
+}
+
+function goToAuth() {
+  clearRedirectTimer()
+  router.push({ path: '/auth', query: { notice: 'password-reset' } })
+}
+
+function startRedirectCountdown() {
+  clearRedirectTimer()
+  redirectCountdown.value = 2
+
+  redirectTimer = window.setInterval(() => {
+    if (redirectCountdown.value <= 1) {
+      goToAuth()
+      return
+    }
+    redirectCountdown.value -= 1
+  }, 1000)
+}
 
 async function requestCode() {
   loading.value = true
@@ -20,9 +50,9 @@ async function requestCode() {
   try {
     const response = await userStore.forgotPassword(email.value.trim())
     token.value = response.token
-    successMessage.value = '验证码已发送，如果邮箱存在且已验证，请检查收件箱。'
+    successMessage.value = '验证码已发送。如果邮箱存在且已验证，请检查收件箱。'
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '发送验证码失败。'
+    errorMessage.value = error instanceof Error ? error.message : '验证码发送失败。'
   } finally {
     loading.value = false
   }
@@ -45,22 +75,29 @@ async function resetPassword() {
   loading.value = true
   errorMessage.value = ''
   successMessage.value = ''
+  clearRedirectTimer()
+
   try {
     const response = await userStore.resetPassword(token.value, code.value.trim(), password.value)
-    successMessage.value = response.message
+    successMessage.value = response.message || 'Password reset complete'
+    startRedirectCountdown()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '重置密码失败。'
   } finally {
     loading.value = false
   }
 }
+
+onBeforeUnmount(() => {
+  clearRedirectTimer()
+})
 </script>
 
 <template>
   <div class="single-page">
     <section class="glass-panel single-card">
       <p class="eyebrow">Reset Password</p>
-      <h1>邮箱验证码找回密码</h1>
+      <h1>通过邮箱验证码重置密码</h1>
 
       <form class="form-grid" @submit.prevent="resetPassword">
         <label>
@@ -88,7 +125,13 @@ async function resetPassword() {
       </form>
 
       <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
-      <p v-if="successMessage" class="success-text">{{ successMessage }}</p>
+      <div v-if="successMessage" class="success-block">
+        <p class="success-text">{{ successMessage }}</p>
+        <p v-if="redirectCountdown > 0" class="helper-text">
+          {{ redirectCountdown }} 秒后自动返回登录页。
+        </p>
+        <button type="button" class="btn btn-outline" @click="goToAuth">立即前往登录</button>
+      </div>
     </section>
   </div>
 </template>
@@ -122,7 +165,16 @@ async function resetPassword() {
   color: #ffb4b4;
 }
 
+.success-block {
+  display: grid;
+  gap: 12px;
+}
+
 .success-text {
   color: #9af0c8;
+}
+
+.helper-text {
+  color: var(--text-muted);
 }
 </style>

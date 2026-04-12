@@ -1,0 +1,48 @@
+- generic [ref=e67]:
+  - generic [ref=e68]:
+    - generic [ref=e69]:
+      - generic [ref=e70]:
+        - paragraph [ref=e71]: VoiceLinkVR Console
+        - heading "连接您的虚拟世界语言中枢。" [level=1] [ref=e72]
+      - generic [ref=e73]:
+        - generic [ref=e74]: 语言
+        - combobox "语言" [ref=e75] [cursor=pointer]:
+          - option "中文" [selected]
+          - option "English"
+          - option "日本語"
+    - paragraph [ref=e76]: 登录 VoiceLinkVR 控制台以分配 VRCLS 客户端的云端算力，并获取实时的 API 消耗明细与订阅服务。
+    - generic [ref=e77]:
+      - generic [ref=e78]:
+        - strong [ref=e79]: v2 主登录
+        - text: 新控制台默认使用邮箱密码登录，注册时不再要求昵称或用户名。
+      - generic [ref=e80]:
+        - strong [ref=e81]: 旧账号迁移
+        - text: 旧用户名和旧密码仅作为迁移入口，验证后需要立即绑定并验证邮箱。
+      - generic [ref=e82]:
+        - strong [ref=e83]: 控制台授权
+        - text: 桌面客户端推荐使用设备授权登录，不再把测试账号当成真实登录身份。
+  - generic [ref=e84]:
+    - generic [ref=e85]:
+      - paragraph [ref=e86]: VoiceLinkVR 控制台
+      - heading "邮箱登录" [level=2] [ref=e87]
+    - generic [ref=e88]:
+      - button "邮箱登录" [ref=e89] [cursor=pointer]
+      - button "控制台授权" [ref=e90] [cursor=pointer]
+      - button "旧账号迁移" [ref=e91] [cursor=pointer]
+    - generic [ref=e92]:
+      - button "账户登录" [ref=e93] [cursor=pointer]
+      - button "注册账户" [ref=e94] [cursor=pointer]
+    - generic [ref=e95]:
+      - generic [ref=e96]:
+        - generic [ref=e97]: 邮箱地址
+        - textbox "邮箱地址" [ref=e98]:
+          - /placeholder: 请输入常用的邮箱地址
+      - generic [ref=e99]:
+        - generic [ref=e100]: 密码
+        - textbox "密码" [ref=e101]:
+          - /placeholder: 长度至少 6 位字符
+      - button "登录控制台" [ref=e102] [cursor=pointer]
+    - link "忘记密码？" [ref=e103] [cursor=pointer]:
+      - /url: /app/reset-password
+    - link "返回首页" [ref=e104] [cursor=pointer]:
+      - /url: /app/

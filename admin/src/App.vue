@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 
 type NoticeKind = 'info' | 'success' | 'error'
-type TabKey = 'dashboard' | 'users' | 'orders' | 'stats' | 'plans'
+type TabKey = 'dashboard' | 'users' | 'orders' | 'stats' | 'configs'
 
 type AdminUser = {
   id: string
@@ -93,15 +93,61 @@ type StatsPayload = {
   meta: Record<string, string | number>
 }
 
-type PlanTier = {
-  id: string
-  monthly_price: number
-  daily_quota: number
+type SiteConfigGroup = {
+  key: string
+  label: string
+  description: string
+  count: number
 }
 
-type PlanCatalogPayload = {
-  free_plan: PlanTier
-  tiers: PlanTier[]
+type SiteConfigItem = {
+  key: string
+  group: string
+  group_label: string
+  label: string
+  description: string
+  is_secret: boolean
+  requires_restart: boolean
+  source: string
+  value: string
+  raw_value: unknown
+  base_value: string
+  base_raw_value: unknown
+  updated_at: string | null
+  updated_by_username: string | null
+  updated_note: string | null
+}
+
+type SiteConfigListPayload = {
+  groups: SiteConfigGroup[]
+  items: SiteConfigItem[]
+}
+
+type SiteConfigUpdatePayload = SiteConfigListPayload & {
+  applied: boolean
+  message: string
+}
+
+type SiteConfigAuditItem = {
+  id: string
+  config_key: string
+  config_group: string
+  operation: string
+  is_secret: boolean
+  requires_restart: boolean
+  old_value: string | null
+  new_value: string | null
+  old_fingerprint: string | null
+  new_fingerprint: string | null
+  changed_by_user_id: string | null
+  changed_by_username: string | null
+  changed_from_ip: string | null
+  change_note: string | null
+  created_at: string | null
+}
+
+type SiteConfigAuditPayload = {
+  items: SiteConfigAuditItem[]
 }
 
 class ApiError extends Error {
@@ -204,6 +250,57 @@ function asJson(value: unknown) {
   return JSON.stringify(value, null, 2)
 }
 
+function planModeLabel(mode: string) {
+  return mode === 'ladder' ? '阶梯模式' : '固定档模式'
+}
+
+function syncConfigDraft(item: SiteConfigItem | null) {
+  if (!item) {
+    configDraftValue.value = ''
+    return
+  }
+  if (typeof item.raw_value === 'boolean') {
+    configDraftValue.value = item.raw_value ? 'true' : 'false'
+    return
+  }
+  if (item.raw_value === null || item.raw_value === undefined) {
+    configDraftValue.value = ''
+    return
+  }
+  if (typeof item.raw_value === 'object') {
+    configDraftValue.value = JSON.stringify(item.raw_value, null, 2)
+    return
+  }
+  configDraftValue.value = String(item.raw_value)
+}
+
+function openConfigEditor(item: SiteConfigItem) {
+  selectedConfigKey.value = item.key
+  syncConfigDraft(item)
+}
+
+function parseConfigDraftValue(item: SiteConfigItem) {
+  const raw = configDraftValue.value
+  if (typeof item.raw_value === 'boolean') {
+    return raw === 'true'
+  }
+  if (typeof item.raw_value === 'number') {
+    const parsed = Number(raw)
+    if (Number.isNaN(parsed)) {
+      throw new Error('配置值必须是合法数字')
+    }
+    return parsed
+  }
+  if (Array.isArray(item.raw_value) || (item.raw_value && typeof item.raw_value === 'object')) {
+    try {
+      return JSON.parse(raw)
+    } catch {
+      throw new Error('配置值必须是合法 JSON')
+    }
+  }
+  return raw
+}
+
 const booting = ref(true)
 const busy = ref(false)
 const activeTab = ref<TabKey>('dashboard')
@@ -213,12 +310,20 @@ const usersPayload = ref<UserListPayload | null>(null)
 const userDetail = ref<UserDetailPayload | null>(null)
 const ordersPayload = ref<OrdersPayload | null>(null)
 const statsPayload = ref<StatsPayload | null>(null)
-const planCatalog = ref<PlanCatalogPayload | null>(null)
+const siteConfigsPayload = ref<SiteConfigListPayload | null>(null)
+const configAuditPayload = ref<SiteConfigAuditPayload | null>(null)
 const selectedStatsHour = ref('')
 const lookupKeyword = ref('')
 const lookupResult = ref<unknown>(null)
 const tokenParseResult = ref<unknown>(null)
 const selectedUserId = ref<string>('')
+const selectedConfigKey = ref('')
+const configGroupFilter = ref('all')
+const configSourceFilter = ref('all')
+const configSearchKeyword = ref('')
+const configDraftValue = ref('')
+const configChangeNote = ref('')
+const configAuditLimit = ref('50')
 
 const notice = reactive({
   kind: 'info' as NoticeKind,
@@ -229,7 +334,7 @@ const bootstrapForm = reactive({
   username: 'admin',
   password: '',
   email: '',
-  display_name: 'Administrator',
+  display_name: '管理员',
 })
 
 const loginForm = reactive({
@@ -242,6 +347,45 @@ const editForm = reactive(emptyUserForm())
 
 const hasSession = computed(() => Boolean(authState.value.user))
 const selectedUserOrders = computed(() => userDetail.value?.orders ?? [])
+const selectedConfig = computed(() => {
+  return siteConfigsPayload.value?.items.find((item) => item.key === selectedConfigKey.value) ?? null
+})
+const filteredConfigItems = computed(() => {
+  const items = siteConfigsPayload.value?.items ?? []
+  const keyword = configSearchKeyword.value.trim().toLowerCase()
+  return items.filter((item) => {
+    if (configGroupFilter.value !== 'all' && item.group !== configGroupFilter.value) {
+      return false
+    }
+    if (configSourceFilter.value !== 'all' && item.source !== configSourceFilter.value) {
+      return false
+    }
+    if (!keyword) {
+      return true
+    }
+    const haystack = `${item.key} ${item.label} ${item.description} ${item.value} ${item.base_value}`.toLowerCase()
+    return haystack.includes(keyword)
+  })
+})
+const overrideConfigCount = computed(() => siteConfigsPayload.value?.items.filter((item) => item.source === 'override').length ?? 0)
+const secretConfigCount = computed(() => siteConfigsPayload.value?.items.filter((item) => item.is_secret).length ?? 0)
+const restartRequiredCount = computed(() => siteConfigsPayload.value?.items.filter((item) => item.requires_restart).length ?? 0)
+const billingSubscriptionMode = computed(() => {
+  const raw = siteConfigsPayload.value?.items.find((item) => item.key === 'billing.subscription_mode')?.raw_value
+  return raw === 'ladder' ? 'ladder' : 'fixed_tiers'
+})
+const freeDailyQuota = computed(() => {
+  const raw = siteConfigsPayload.value?.items.find((item) => item.key === 'free_plan.daily_quota')?.raw_value
+  return typeof raw === 'number' ? raw : 0
+})
+const fixedTierCount = computed(() => {
+  const raw = siteConfigsPayload.value?.items.find((item) => item.key === 'tiers')?.raw_value
+  return Array.isArray(raw) ? raw.length : 0
+})
+const addonCount = computed(() => {
+  const raw = siteConfigsPayload.value?.items.find((item) => item.key === 'addons')?.raw_value
+  return Array.isArray(raw) ? raw.length : 0
+})
 
 function setNotice(kind: NoticeKind, message: string) {
   notice.kind = kind
@@ -281,8 +425,16 @@ async function refreshStats(hour?: string) {
   selectedStatsHour.value = statsPayload.value.selected_hour ?? ''
 }
 
-async function refreshPlans() {
-  planCatalog.value = await requestJson<PlanCatalogPayload>('/adminapi/plans')
+async function refreshConfigs() {
+  siteConfigsPayload.value = await requestJson<SiteConfigListPayload>('/adminapi/configs')
+  if (!selectedConfigKey.value && siteConfigsPayload.value.items.length > 0) {
+    openConfigEditor(siteConfigsPayload.value.items[0])
+    return
+  }
+  const current = siteConfigsPayload.value.items.find((item) => item.key === selectedConfigKey.value) ?? null
+  if (current) {
+    syncConfigDraft(current)
+  }
 }
 
 async function refreshAll() {
@@ -291,7 +443,7 @@ async function refreshAll() {
     refreshUsers(),
     refreshOrders(),
     refreshStats(selectedStatsHour.value || undefined),
-    refreshPlans(),
+    refreshConfigs(),
   ])
 }
 
@@ -313,7 +465,7 @@ async function bootstrapApp() {
       await refreshAll()
     }
   } catch (error) {
-    setNotice('error', error instanceof Error ? error.message : 'Failed to initialize admin console')
+    setNotice('error', error instanceof Error ? error.message : '初始化管理后台失败')
   } finally {
     booting.value = false
   }
@@ -342,9 +494,9 @@ async function handleBootstrap() {
     })
     await loadAuthState()
     await refreshAll()
-    setNotice('success', 'First admin created and signed in.')
+    setNotice('success', '首个管理员已创建并登录。')
   } catch (error) {
-    setNotice('error', error instanceof Error ? error.message : 'Failed to bootstrap admin')
+    setNotice('error', error instanceof Error ? error.message : '创建管理员失败')
   } finally {
     busy.value = false
   }
@@ -360,9 +512,9 @@ async function handleLogin() {
     })
     await loadAuthState()
     await refreshAll()
-    setNotice('success', 'Signed in.')
+    setNotice('success', '登录成功。')
   } catch (error) {
-    setNotice('error', error instanceof Error ? error.message : 'Login failed')
+    setNotice('error', error instanceof Error ? error.message : '登录失败')
   } finally {
     busy.value = false
   }
@@ -381,11 +533,13 @@ async function handleLogout() {
     userDetail.value = null
     ordersPayload.value = null
     statsPayload.value = null
-    planCatalog.value = null
     lookupResult.value = null
     tokenParseResult.value = null
+    siteConfigsPayload.value = null
+    configAuditPayload.value = null
     selectedUserId.value = ''
-    setNotice('info', 'Signed out.')
+    selectedConfigKey.value = ''
+    setNotice('info', '已退出登录。')
     busy.value = false
   }
 }
@@ -400,9 +554,9 @@ async function handleCreateUser() {
     })
     Object.assign(createForm, emptyUserForm())
     await Promise.all([refreshUsers(), refreshDashboard()])
-    setNotice('success', 'User created.')
+    setNotice('success', '用户已创建。')
   } catch (error) {
-    setNotice('error', error instanceof Error ? error.message : 'Failed to create user')
+    setNotice('error', error instanceof Error ? error.message : '创建用户失败')
   } finally {
     busy.value = false
   }
@@ -410,7 +564,7 @@ async function handleCreateUser() {
 
 async function handleUpdateUser() {
   if (!selectedUserId.value) {
-    setNotice('error', 'Select a user first.')
+    setNotice('error', '请先选择用户。')
     return
   }
   busy.value = true
@@ -421,16 +575,16 @@ async function handleUpdateUser() {
       body: JSON.stringify(payloadFromForm(editForm)),
     })
     await Promise.all([refreshUsers(), refreshDashboard(), loadUserDetail(selectedUserId.value)])
-    setNotice('success', 'User updated.')
+    setNotice('success', '用户已更新。')
   } catch (error) {
-    setNotice('error', error instanceof Error ? error.message : 'Failed to update user')
+    setNotice('error', error instanceof Error ? error.message : '更新用户失败')
   } finally {
     busy.value = false
   }
 }
 
 async function handleDeleteUser(id: string) {
-  if (!window.confirm('Delete this user?')) {
+  if (!window.confirm('确定删除该用户吗？')) {
     return
   }
   busy.value = true
@@ -443,9 +597,9 @@ async function handleDeleteUser(id: string) {
       Object.assign(editForm, emptyUserForm())
     }
     await Promise.all([refreshUsers(), refreshDashboard()])
-    setNotice('success', 'User deleted.')
+    setNotice('success', '用户已删除。')
   } catch (error) {
-    setNotice('error', error instanceof Error ? error.message : 'Failed to delete user')
+    setNotice('error', error instanceof Error ? error.message : '删除用户失败')
   } finally {
     busy.value = false
   }
@@ -453,7 +607,7 @@ async function handleDeleteUser(id: string) {
 
 async function handleLookupOrder() {
   if (!lookupKeyword.value.trim()) {
-    setNotice('error', 'Enter an order keyword first.')
+    setNotice('error', '请先输入订单关键词。')
     return
   }
   busy.value = true
@@ -464,9 +618,9 @@ async function handleLookupOrder() {
       body: JSON.stringify({ keyword: lookupKeyword.value }),
     })
     tokenParseResult.value = null
-    setNotice('success', 'Lookup finished.')
+    setNotice('success', '订单查询完成。')
   } catch (error) {
-    setNotice('error', error instanceof Error ? error.message : 'Lookup failed')
+    setNotice('error', error instanceof Error ? error.message : '订单查询失败')
   } finally {
     busy.value = false
   }
@@ -474,7 +628,7 @@ async function handleLookupOrder() {
 
 async function handleParseToken() {
   if (!lookupKeyword.value.trim()) {
-    setNotice('error', 'Enter a token or keyword first.')
+    setNotice('error', '请先输入 token 或关键词。')
     return
   }
   busy.value = true
@@ -484,9 +638,9 @@ async function handleParseToken() {
       method: 'POST',
       body: JSON.stringify({ keyword: lookupKeyword.value }),
     })
-    setNotice('success', 'Token parsed.')
+    setNotice('success', 'Token 已解析。')
   } catch (error) {
-    setNotice('error', error instanceof Error ? error.message : 'Failed to parse token')
+    setNotice('error', error instanceof Error ? error.message : '解析 token 失败')
   } finally {
     busy.value = false
   }
@@ -494,7 +648,7 @@ async function handleParseToken() {
 
 async function handleActivateOrder() {
   if (!lookupKeyword.value.trim()) {
-    setNotice('error', 'Enter an order keyword first.')
+    setNotice('error', '请先输入订单关键词。')
     return
   }
   busy.value = true
@@ -505,9 +659,9 @@ async function handleActivateOrder() {
       body: JSON.stringify({ keyword: lookupKeyword.value }),
     })
     await Promise.all([refreshOrders(), refreshUsers(), refreshDashboard()])
-    setNotice('success', 'Activation finished.')
+    setNotice('success', '订单激活完成。')
   } catch (error) {
-    setNotice('error', error instanceof Error ? error.message : 'Failed to activate order')
+    setNotice('error', error instanceof Error ? error.message : '激活订单失败')
   } finally {
     busy.value = false
   }
@@ -518,53 +672,98 @@ async function handleStatsReload() {
   clearNotice()
   try {
     await refreshStats(selectedStatsHour.value || undefined)
-    setNotice('success', 'Stats reloaded.')
+    setNotice('success', '统计数据已刷新。')
   } catch (error) {
-    setNotice('error', error instanceof Error ? error.message : 'Failed to reload stats')
+    setNotice('error', error instanceof Error ? error.message : '刷新统计数据失败')
   } finally {
     busy.value = false
   }
 }
 
-function handleAddPlanTier() {
-  if (!planCatalog.value) {
-    return
-  }
-  const lastTier = [...planCatalog.value.tiers].sort((left, right) => left.monthly_price - right.monthly_price).at(-1)
-  planCatalog.value.tiers.push({
-    id: '',
-    monthly_price: lastTier ? lastTier.monthly_price + 5 : 5,
-    daily_quota: lastTier ? lastTier.daily_quota + 1500 : planCatalog.value.free_plan.daily_quota,
-  })
-}
-
-function handleRemovePlanTier(index: number) {
-  if (!planCatalog.value) {
-    return
-  }
-  planCatalog.value.tiers.splice(index, 1)
-}
-
-async function handleSavePlans() {
-  if (!planCatalog.value) {
+async function handleLoadConfigAudit(key?: string) {
+  const targetKey = key ?? selectedConfigKey.value
+  if (!targetKey) {
+    setNotice('error', '请先选择一个配置项。')
     return
   }
   busy.value = true
   clearNotice()
   try {
-    planCatalog.value = await requestJson<PlanCatalogPayload>('/adminapi/plans', {
+    selectedConfigKey.value = targetKey
+    configAuditPayload.value = await requestJson<SiteConfigAuditPayload>(
+      `/adminapi/configs/audit?config_key=${encodeURIComponent(targetKey)}&limit=${encodeURIComponent(configAuditLimit.value)}`,
+    )
+    setNotice('success', '配置审计已刷新。')
+  } catch (error) {
+    setNotice('error', error instanceof Error ? error.message : '加载配置审计失败')
+  } finally {
+    busy.value = false
+  }
+}
+
+async function handleSaveConfig() {
+  if (!selectedConfig.value) {
+    setNotice('error', '请先选择一个配置项。')
+    return
+  }
+  busy.value = true
+  clearNotice()
+  try {
+    const payload = await requestJson<SiteConfigUpdatePayload>('/adminapi/configs', {
       method: 'PUT',
       body: JSON.stringify({
-        free_daily_quota: planCatalog.value.free_plan.daily_quota,
-        tiers: planCatalog.value.tiers.map((tier) => ({
-          monthly_price: tier.monthly_price,
-          daily_quota: tier.daily_quota,
-        })),
+        items: [
+          {
+            key: selectedConfig.value.key,
+            value: parseConfigDraftValue(selectedConfig.value),
+          },
+        ],
+        change_note: configChangeNote.value || null,
       }),
     })
-    setNotice('success', 'Plan catalog saved.')
+    siteConfigsPayload.value = payload
+    const current = payload.items.find((item) => item.key === selectedConfigKey.value) ?? null
+    if (current) {
+      syncConfigDraft(current)
+    }
+    await handleLoadConfigAudit(selectedConfig.value.key)
+    setNotice('success', payload.message || '配置已保存。')
   } catch (error) {
-    setNotice('error', error instanceof Error ? error.message : 'Failed to save plan catalog')
+    setNotice('error', error instanceof Error ? error.message : '保存配置失败')
+  } finally {
+    busy.value = false
+  }
+}
+
+async function handleClearConfigOverride() {
+  if (!selectedConfig.value) {
+    setNotice('error', '请先选择一个配置项。')
+    return
+  }
+  busy.value = true
+  clearNotice()
+  try {
+    const payload = await requestJson<SiteConfigUpdatePayload>('/adminapi/configs', {
+      method: 'PUT',
+      body: JSON.stringify({
+        items: [
+          {
+            key: selectedConfig.value.key,
+            clear: true,
+          },
+        ],
+        change_note: configChangeNote.value || null,
+      }),
+    })
+    siteConfigsPayload.value = payload
+    const current = payload.items.find((item) => item.key === selectedConfigKey.value) ?? null
+    if (current) {
+      syncConfigDraft(current)
+    }
+    await handleLoadConfigAudit(selectedConfig.value.key)
+    setNotice('success', payload.message || '配置已恢复基础值。')
+  } catch (error) {
+    setNotice('error', error instanceof Error ? error.message : '清空覆盖失败')
   } finally {
     busy.value = false
   }
@@ -581,7 +780,7 @@ onMounted(() => {
 
     <template v-if="booting">
       <section class="center-stage glass-panel splash-panel">
-        <p class="eyebrow">Secure Operations</p>
+        <p class="eyebrow">管理后台</p>
         <h1>运营管控中心</h1>
         <p class="muted">正在同步核心数据看板、用户信息、订单流水与平台运行统计。</p>
       </section>
@@ -590,46 +789,46 @@ onMounted(() => {
     <template v-else-if="!hasSession">
       <section class="auth-shell">
         <div class="hero-card glass-panel">
-          <p class="eyebrow">Secure Operations</p>
+          <p class="eyebrow">管理后台</p>
           <h1>运营管控中心</h1>
           <p class="muted">核心数据看板与用户/订单管理中枢。仅授权管理员访问。</p>
           <div v-if="notice.message" class="notice" :data-kind="notice.kind">{{ notice.message }}</div>
         </div>
 
         <form v-if="!authState.has_admin" class="auth-card glass-panel" @submit.prevent="handleBootstrap">
-          <p class="eyebrow">Bootstrap</p>
-          <h2>Create the first administrator</h2>
+          <p class="eyebrow">初始化</p>
+          <h2>创建首个管理员</h2>
           <label>
-            <span>Username</span>
+            <span>用户名</span>
             <input v-model.trim="bootstrapForm.username" class="input-field" required />
           </label>
           <label>
-            <span>Display Name</span>
+            <span>显示名称</span>
             <input v-model.trim="bootstrapForm.display_name" class="input-field" />
           </label>
           <label>
-            <span>Email</span>
+            <span>邮箱</span>
             <input v-model.trim="bootstrapForm.email" class="input-field" type="email" />
           </label>
           <label>
-            <span>Password</span>
+            <span>密码</span>
             <input v-model="bootstrapForm.password" class="input-field" type="password" minlength="6" required />
           </label>
-          <button class="btn btn-primary" :disabled="busy" type="submit">Create Admin</button>
+          <button class="btn btn-primary" :disabled="busy" type="submit">创建管理员</button>
         </form>
 
         <form v-else class="auth-card glass-panel" @submit.prevent="handleLogin">
-          <p class="eyebrow">Sign In</p>
-          <h2>Administrator login</h2>
+          <p class="eyebrow">登录</p>
+          <h2>管理员登录</h2>
           <label>
-            <span>Username or Email</span>
+            <span>用户名或邮箱</span>
             <input v-model.trim="loginForm.login" class="input-field" required />
           </label>
           <label>
-            <span>Password</span>
+            <span>密码</span>
             <input v-model="loginForm.password" class="input-field" type="password" required />
           </label>
-          <button class="btn btn-primary" :disabled="busy" type="submit">Sign In</button>
+          <button class="btn btn-primary" :disabled="busy" type="submit">登录</button>
         </form>
       </section>
     </template>
@@ -637,7 +836,7 @@ onMounted(() => {
     <template v-else>
       <header class="topbar">
         <div>
-          <p class="eyebrow">Secure Operations</p>
+          <p class="eyebrow">管理后台</p>
           <h1>运营管控中心</h1>
         </div>
         <div class="topbar-actions">
@@ -645,39 +844,39 @@ onMounted(() => {
             <strong>{{ authState.user?.display_name || authState.user?.username }}</strong>
             <span>{{ authState.user?.email || authState.user?.username }}</span>
           </div>
-          <button class="btn btn-outline" :disabled="busy" @click="handleLogout">Sign Out</button>
+          <button class="btn btn-outline" :disabled="busy" @click="handleLogout">退出登录</button>
         </div>
       </header>
 
       <div v-if="notice.message" class="notice global-notice" :data-kind="notice.kind">{{ notice.message }}</div>
 
       <nav class="tabbar glass-panel">
-        <button class="tab" :class="{ active: activeTab === 'dashboard' }" @click="activeTab = 'dashboard'">Dashboard</button>
-        <button class="tab" :class="{ active: activeTab === 'users' }" @click="activeTab = 'users'">Users</button>
-        <button class="tab" :class="{ active: activeTab === 'orders' }" @click="activeTab = 'orders'">Orders</button>
-        <button class="tab" :class="{ active: activeTab === 'stats' }" @click="activeTab = 'stats'">Stats</button>
-        <button class="tab" :class="{ active: activeTab === 'plans' }" @click="activeTab = 'plans'">Plans</button>
+        <button class="tab" :class="{ active: activeTab === 'dashboard' }" @click="activeTab = 'dashboard'">概览</button>
+        <button class="tab" :class="{ active: activeTab === 'users' }" @click="activeTab = 'users'">用户</button>
+        <button class="tab" :class="{ active: activeTab === 'orders' }" @click="activeTab = 'orders'">订单</button>
+        <button class="tab" :class="{ active: activeTab === 'stats' }" @click="activeTab = 'stats'">统计</button>
+        <button class="tab" :class="{ active: activeTab === 'configs' }" @click="activeTab = 'configs'">配置</button>
       </nav>
 
       <main class="workspace">
         <section v-if="activeTab === 'dashboard'" class="page-grid">
           <div class="metrics-grid">
-            <article class="metric-card glass-panel"><span>Total Users</span><strong>{{ dashboard?.users.total_users ?? 0 }}</strong></article>
-            <article class="metric-card glass-panel"><span>Active Users</span><strong>{{ dashboard?.users.active_users ?? 0 }}</strong></article>
-            <article class="metric-card glass-panel"><span>Total Orders</span><strong>{{ dashboard?.orders.total_orders ?? 0 }}</strong></article>
-            <article class="metric-card glass-panel"><span>Activated Amount</span><strong>CNY {{ dashboard?.orders.activated_amount_total ?? 0 }}</strong></article>
+            <article class="metric-card glass-panel"><span>用户总数</span><strong>{{ dashboard?.users.total_users ?? 0 }}</strong></article>
+            <article class="metric-card glass-panel"><span>活跃用户</span><strong>{{ dashboard?.users.active_users ?? 0 }}</strong></article>
+            <article class="metric-card glass-panel"><span>订单总数</span><strong>{{ dashboard?.orders.total_orders ?? 0 }}</strong></article>
+            <article class="metric-card glass-panel"><span>已激活金额</span><strong>CNY {{ dashboard?.orders.activated_amount_total ?? 0 }}</strong></article>
           </div>
 
           <div class="split-grid">
             <section class="glass-panel panel-section">
-              <div class="section-head"><h2>Latest users</h2><button class="btn btn-ghost" :disabled="busy" @click="refreshDashboard">Refresh</button></div>
+              <div class="section-head"><h2>最近用户</h2><button class="btn btn-ghost" :disabled="busy" @click="refreshDashboard">刷新</button></div>
               <table class="data-table">
-                <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Last Login</th></tr></thead>
+                <thead><tr><th>用户</th><th>角色</th><th>状态</th><th>最近登录</th></tr></thead>
                 <tbody>
                   <tr v-for="user in dashboard?.latest_users ?? []" :key="user.id">
                     <td><strong>{{ user.display_name }}</strong><span>{{ user.username }}</span></td>
-                    <td>{{ user.is_admin ? 'Admin' : 'Member' }}</td>
-                    <td>{{ user.is_active ? 'Active' : 'Disabled' }}</td>
+                    <td>{{ user.is_admin ? '管理员' : '普通用户' }}</td>
+                    <td>{{ user.is_active ? '启用' : '停用' }}</td>
                     <td>{{ formatDate(user.last_login_at) }}</td>
                   </tr>
                 </tbody>
@@ -685,9 +884,9 @@ onMounted(() => {
             </section>
 
             <section class="glass-panel panel-section">
-              <div class="section-head"><h2>Latest orders</h2><button class="btn btn-ghost" :disabled="busy" @click="refreshOrders">Refresh</button></div>
+              <div class="section-head"><h2>最近订单</h2><button class="btn btn-ghost" :disabled="busy" @click="refreshOrders">刷新</button></div>
               <table class="data-table">
-                <thead><tr><th>Order</th><th>User</th><th>Status</th><th>Amount</th></tr></thead>
+                <thead><tr><th>订单</th><th>用户</th><th>状态</th><th>金额</th></tr></thead>
                 <tbody>
                   <tr v-for="order in dashboard?.latest_orders ?? []" :key="order.id">
                     <td>{{ order.out_trade_no || order.order_no || `#${order.id}` }}</td>
@@ -703,62 +902,62 @@ onMounted(() => {
 
         <section v-else-if="activeTab === 'users'" class="page-grid">
           <div class="metrics-grid">
-            <article class="metric-card glass-panel"><span>Total Users</span><strong>{{ usersPayload?.summary.total_users ?? 0 }}</strong></article>
-            <article class="metric-card glass-panel"><span>Admin Users</span><strong>{{ usersPayload?.summary.admin_users ?? 0 }}</strong></article>
-            <article class="metric-card glass-panel"><span>Expiring in 7 Days</span><strong>{{ usersPayload?.summary.expiring_in_7_days ?? 0 }}</strong></article>
-            <article class="metric-card glass-panel"><span>Non Permanent</span><strong>{{ usersPayload?.summary.non_permanent_users ?? 0 }}</strong></article>
+            <article class="metric-card glass-panel"><span>用户总数</span><strong>{{ usersPayload?.summary.total_users ?? 0 }}</strong></article>
+            <article class="metric-card glass-panel"><span>管理员数</span><strong>{{ usersPayload?.summary.admin_users ?? 0 }}</strong></article>
+            <article class="metric-card glass-panel"><span>7 天内到期</span><strong>{{ usersPayload?.summary.expiring_in_7_days ?? 0 }}</strong></article>
+            <article class="metric-card glass-panel"><span>非永久用户</span><strong>{{ usersPayload?.summary.non_permanent_users ?? 0 }}</strong></article>
           </div>
 
           <div class="split-grid">
             <section class="glass-panel panel-section form-panel">
-              <div class="section-head"><h2>Create user</h2><button class="btn btn-ghost" :disabled="busy" @click="Object.assign(createForm, emptyUserForm())">Reset</button></div>
+              <div class="section-head"><h2>创建用户</h2><button class="btn btn-ghost" :disabled="busy" @click="Object.assign(createForm, emptyUserForm())">重置</button></div>
               <div class="form-grid">
-                <label><span>Username</span><input v-model.trim="createForm.username" class="input-field" /></label>
-                <label><span>Display Name</span><input v-model.trim="createForm.display_name" class="input-field" /></label>
-                <label><span>Email</span><input v-model.trim="createForm.email" class="input-field" type="email" /></label>
-                <label><span>Password</span><input v-model="createForm.password" class="input-field" type="password" /></label>
-                <label><span>Limit Rule</span><input v-model.trim="createForm.limit_rule" class="input-field" placeholder="800/day;8/minute" /></label>
-                <label><span>Expiration</span><input v-model="createForm.expiration_date" class="input-field" type="datetime-local" /></label>
-                <label class="check-row"><input v-model="createForm.is_admin" type="checkbox" /> Admin</label>
-                <label class="check-row"><input v-model="createForm.is_active" type="checkbox" /> Active</label>
+                <label><span>用户名</span><input v-model.trim="createForm.username" class="input-field" /></label>
+                <label><span>显示名称</span><input v-model.trim="createForm.display_name" class="input-field" /></label>
+                <label><span>邮箱</span><input v-model.trim="createForm.email" class="input-field" type="email" /></label>
+                <label><span>密码</span><input v-model="createForm.password" class="input-field" type="password" /></label>
+                <label><span>限额规则</span><input v-model.trim="createForm.limit_rule" class="input-field" placeholder="800/day;8/minute" /></label>
+                <label><span>到期时间</span><input v-model="createForm.expiration_date" class="input-field" type="datetime-local" /></label>
+                <label class="check-row"><input v-model="createForm.is_admin" type="checkbox" /> 管理员</label>
+                <label class="check-row"><input v-model="createForm.is_active" type="checkbox" /> 启用</label>
               </div>
-              <button class="btn btn-primary" :disabled="busy" @click="handleCreateUser">Create User</button>
+              <button class="btn btn-primary" :disabled="busy" @click="handleCreateUser">创建用户</button>
             </section>
 
             <section class="glass-panel panel-section form-panel">
               <div class="section-head">
-                <h2>Edit selected user</h2>
-                <button class="btn btn-ghost" :disabled="busy || !selectedUserId" @click="selectedUserId = ''; userDetail = null; Object.assign(editForm, emptyUserForm())">Clear</button>
+                <h2>编辑选中用户</h2>
+                <button class="btn btn-ghost" :disabled="busy || !selectedUserId" @click="selectedUserId = ''; userDetail = null; Object.assign(editForm, emptyUserForm())">清空</button>
               </div>
               <div class="form-grid">
-                <label><span>Username</span><input v-model.trim="editForm.username" class="input-field" :disabled="!selectedUserId" /></label>
-                <label><span>Display Name</span><input v-model.trim="editForm.display_name" class="input-field" :disabled="!selectedUserId" /></label>
-                <label><span>Email</span><input v-model.trim="editForm.email" class="input-field" type="email" :disabled="!selectedUserId" /></label>
-                <label><span>New Password</span><input v-model="editForm.password" class="input-field" type="password" :disabled="!selectedUserId" /></label>
-                <label><span>Limit Rule</span><input v-model.trim="editForm.limit_rule" class="input-field" :disabled="!selectedUserId" /></label>
-                <label><span>Expiration</span><input v-model="editForm.expiration_date" class="input-field" type="datetime-local" :disabled="!selectedUserId" /></label>
-                <label class="check-row"><input v-model="editForm.is_admin" type="checkbox" :disabled="!selectedUserId" /> Admin</label>
-                <label class="check-row"><input v-model="editForm.is_active" type="checkbox" :disabled="!selectedUserId" /> Active</label>
+                <label><span>用户名</span><input v-model.trim="editForm.username" class="input-field" :disabled="!selectedUserId" /></label>
+                <label><span>显示名称</span><input v-model.trim="editForm.display_name" class="input-field" :disabled="!selectedUserId" /></label>
+                <label><span>邮箱</span><input v-model.trim="editForm.email" class="input-field" type="email" :disabled="!selectedUserId" /></label>
+                <label><span>新密码</span><input v-model="editForm.password" class="input-field" type="password" :disabled="!selectedUserId" /></label>
+                <label><span>限额规则</span><input v-model.trim="editForm.limit_rule" class="input-field" :disabled="!selectedUserId" /></label>
+                <label><span>到期时间</span><input v-model="editForm.expiration_date" class="input-field" type="datetime-local" :disabled="!selectedUserId" /></label>
+                <label class="check-row"><input v-model="editForm.is_admin" type="checkbox" :disabled="!selectedUserId" /> 管理员</label>
+                <label class="check-row"><input v-model="editForm.is_active" type="checkbox" :disabled="!selectedUserId" /> 启用</label>
               </div>
-              <button class="btn btn-primary" :disabled="busy || !selectedUserId" @click="handleUpdateUser">Update User</button>
-              <div v-if="userDetail" class="mini-card"><strong>User orders</strong><span>{{ selectedUserOrders.length }} linked orders</span></div>
+              <button class="btn btn-primary" :disabled="busy || !selectedUserId" @click="handleUpdateUser">保存用户</button>
+              <div v-if="userDetail" class="mini-card"><strong>用户订单</strong><span>{{ selectedUserOrders.length }} 条关联订单</span></div>
             </section>
           </div>
 
-          <section class="glass-panel panel-section">
-            <div class="section-head"><h2>User directory</h2><button class="btn btn-ghost" :disabled="busy" @click="refreshUsers">Refresh</button></div>
+          <section class="glass-panel panel-section config-list-panel">
+            <div class="section-head"><h2>用户列表</h2><button class="btn btn-ghost" :disabled="busy" @click="refreshUsers">刷新</button></div>
             <table class="data-table">
-              <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Limit</th><th>Orders</th><th>Actions</th></tr></thead>
+              <thead><tr><th>用户</th><th>角色</th><th>状态</th><th>限额</th><th>订单数</th><th>操作</th></tr></thead>
               <tbody>
                 <tr v-for="user in usersPayload?.items ?? []" :key="user.id" :class="{ selected: selectedUserId === user.id }">
                   <td><strong>{{ user.display_name }}</strong><span>{{ user.username }}</span></td>
-                  <td>{{ user.is_admin ? 'Admin' : 'Member' }}</td>
-                  <td>{{ user.is_active ? 'Active' : 'Disabled' }}</td>
+                  <td>{{ user.is_admin ? '管理员' : '普通用户' }}</td>
+                  <td>{{ user.is_active ? '启用' : '停用' }}</td>
                   <td>{{ user.limit_rule || '-' }}</td>
                   <td>{{ user.afdian_summary.order_count }}</td>
                   <td class="actions-cell">
-                    <button class="btn btn-ghost" :disabled="busy" @click="loadUserDetail(user.id)">Open</button>
-                    <button class="btn btn-danger" :disabled="busy || authState.user?.id === user.id" @click="handleDeleteUser(user.id)">Delete</button>
+                    <button class="btn btn-ghost" :disabled="busy" @click="loadUserDetail(user.id)">打开</button>
+                    <button class="btn btn-danger" :disabled="busy || authState.user?.id === user.id" @click="handleDeleteUser(user.id)">删除</button>
                   </td>
                 </tr>
               </tbody>
@@ -768,30 +967,30 @@ onMounted(() => {
 
         <section v-else-if="activeTab === 'orders'" class="page-grid">
           <div class="metrics-grid">
-            <article class="metric-card glass-panel"><span>Total Orders</span><strong>{{ ordersPayload?.summary.total_orders ?? 0 }}</strong></article>
-            <article class="metric-card glass-panel"><span>Activated</span><strong>{{ ordersPayload?.summary.activated_orders ?? 0 }}</strong></article>
-            <article class="metric-card glass-panel"><span>Pending</span><strong>{{ ordersPayload?.summary.pending_orders ?? 0 }}</strong></article>
-            <article class="metric-card glass-panel"><span>Activated Amount</span><strong>CNY {{ ordersPayload?.summary.activated_amount_total ?? 0 }}</strong></article>
+            <article class="metric-card glass-panel"><span>订单总数</span><strong>{{ ordersPayload?.summary.total_orders ?? 0 }}</strong></article>
+            <article class="metric-card glass-panel"><span>已激活</span><strong>{{ ordersPayload?.summary.activated_orders ?? 0 }}</strong></article>
+            <article class="metric-card glass-panel"><span>待处理</span><strong>{{ ordersPayload?.summary.pending_orders ?? 0 }}</strong></article>
+            <article class="metric-card glass-panel"><span>已激活金额</span><strong>CNY {{ ordersPayload?.summary.activated_amount_total ?? 0 }}</strong></article>
           </div>
 
-          <section class="glass-panel panel-section">
-            <div class="section-head"><h2>Order lookup and activation</h2></div>
+          <section class="glass-panel panel-section config-list-panel">
+            <div class="section-head"><h2>订单查询与激活</h2></div>
             <div class="lookup-row">
               <input v-model.trim="lookupKeyword" class="input-field" placeholder="out_trade_no / order_no / custom_id / remark" />
-              <button class="btn btn-outline" :disabled="busy" @click="handleLookupOrder">Lookup</button>
-              <button class="btn btn-primary" :disabled="busy" @click="handleActivateOrder">Activate</button>
-              <button class="btn btn-ghost" :disabled="busy" @click="handleParseToken">Parse Token</button>
+              <button class="btn btn-outline" :disabled="busy" @click="handleLookupOrder">查询</button>
+              <button class="btn btn-primary" :disabled="busy" @click="handleActivateOrder">激活</button>
+              <button class="btn btn-ghost" :disabled="busy" @click="handleParseToken">解析 Token</button>
             </div>
             <div class="result-grid">
-              <article class="glass-mini" v-if="lookupResult"><h3>Lookup Result</h3><pre>{{ asJson(lookupResult) }}</pre></article>
-              <article class="glass-mini" v-if="tokenParseResult"><h3>Token Parse</h3><pre>{{ asJson(tokenParseResult) }}</pre></article>
+              <article class="glass-mini" v-if="lookupResult"><h3>查询结果</h3><pre>{{ asJson(lookupResult) }}</pre></article>
+              <article class="glass-mini" v-if="tokenParseResult"><h3>Token 解析</h3><pre>{{ asJson(tokenParseResult) }}</pre></article>
             </div>
           </section>
 
           <section class="glass-panel panel-section">
-            <div class="section-head"><h2>Order list</h2><button class="btn btn-ghost" :disabled="busy" @click="refreshOrders">Refresh</button></div>
+            <div class="section-head"><h2>订单列表</h2><button class="btn btn-ghost" :disabled="busy" @click="refreshOrders">刷新</button></div>
             <table class="data-table">
-              <thead><tr><th>Order</th><th>User</th><th>Status</th><th>Action</th><th>Amount</th><th>Updated</th></tr></thead>
+              <thead><tr><th>订单</th><th>用户</th><th>状态</th><th>动作</th><th>金额</th><th>更新时间</th></tr></thead>
               <tbody>
                 <tr v-for="order in ordersPayload?.items ?? []" :key="order.id">
                   <td><strong>{{ order.out_trade_no || order.order_no || `#${order.id}` }}</strong><span>{{ order.remark || order.custom_id || '-' }}</span></td>
@@ -809,28 +1008,28 @@ onMounted(() => {
         <section v-else-if="activeTab === 'stats'" class="page-grid">
           <section class="glass-panel panel-section">
             <div class="section-head">
-              <h2>Hourly request stats</h2>
+              <h2>小时请求统计</h2>
               <div class="lookup-row compact">
                 <select v-model="selectedStatsHour" class="input-field slim-select">
-                  <option value="">Latest window</option>
+                  <option value="">最近窗口</option>
                   <option v-for="hour in statsPayload?.hours ?? []" :key="hour" :value="hour">{{ hour }}</option>
                 </select>
-                <button class="btn btn-primary" :disabled="busy" @click="handleStatsReload">Reload</button>
+                <button class="btn btn-primary" :disabled="busy" @click="handleStatsReload">刷新</button>
               </div>
             </div>
             <div class="metrics-grid">
-              <article class="metric-card glass-panel"><span>Requests</span><strong>{{ statsPayload?.summary.total_count ?? 0 }}</strong></article>
-              <article class="metric-card glass-panel"><span>Success Rate</span><strong>{{ statsPayload?.summary.success_rate ?? 0 }}%</strong></article>
-              <article class="metric-card glass-panel"><span>Rate Limited</span><strong>{{ statsPayload?.summary.total_rate_limited ?? 0 }}</strong></article>
-              <article class="metric-card glass-panel"><span>Resource Cost</span><strong>{{ statsPayload?.summary.total_resource_cost ?? 0 }}</strong></article>
+              <article class="metric-card glass-panel"><span>请求数</span><strong>{{ statsPayload?.summary.total_count ?? 0 }}</strong></article>
+              <article class="metric-card glass-panel"><span>成功率</span><strong>{{ statsPayload?.summary.success_rate ?? 0 }}%</strong></article>
+              <article class="metric-card glass-panel"><span>限流数</span><strong>{{ statsPayload?.summary.total_rate_limited ?? 0 }}</strong></article>
+              <article class="metric-card glass-panel"><span>资源消耗</span><strong>{{ statsPayload?.summary.total_resource_cost ?? 0 }}</strong></article>
             </div>
           </section>
 
           <div class="split-grid">
             <section class="glass-panel panel-section">
-              <div class="section-head"><h2>Daily trend</h2></div>
+              <div class="section-head"><h2>日趋势</h2></div>
               <table class="data-table">
-                <thead><tr><th>Day</th><th>Success</th><th>Fail</th><th>Rate Limited</th><th>Total</th></tr></thead>
+                <thead><tr><th>日期</th><th>成功</th><th>失败</th><th>限流</th><th>总计</th></tr></thead>
                 <tbody>
                   <tr v-for="row in statsPayload?.daily_stats ?? []" :key="String(row.day)">
                     <td>{{ row.day }}</td>
@@ -844,9 +1043,9 @@ onMounted(() => {
             </section>
 
             <section class="glass-panel panel-section">
-              <div class="section-head"><h2>Top endpoints</h2></div>
+              <div class="section-head"><h2>热门接口</h2></div>
               <table class="data-table">
-                <thead><tr><th>Endpoint</th><th>Success</th><th>Fail</th><th>Total</th></tr></thead>
+                <thead><tr><th>接口</th><th>成功</th><th>失败</th><th>总计</th></tr></thead>
                 <tbody>
                   <tr v-for="row in statsPayload?.top_endpoints ?? []" :key="String(row.endpoint)">
                     <td>{{ row.endpoint }}</td>
@@ -862,43 +1061,161 @@ onMounted(() => {
 
         <section v-else class="page-grid">
           <div class="metrics-grid">
-            <article class="metric-card glass-panel"><span>Free Daily Quota</span><strong>{{ planCatalog?.free_plan.daily_quota ?? 0 }}</strong></article>
-            <article class="metric-card glass-panel"><span>Paid Tiers</span><strong>{{ planCatalog?.tiers.length ?? 0 }}</strong></article>
-            <article class="metric-card glass-panel"><span>Lowest Paid</span><strong>CNY {{ planCatalog?.tiers[0]?.monthly_price ?? 0 }}</strong></article>
-            <article class="metric-card glass-panel"><span>Highest Paid</span><strong>CNY {{ planCatalog?.tiers[planCatalog.tiers.length - 1]?.monthly_price ?? 0 }}</strong></article>
+            <article class="metric-card glass-panel"><span>配置总数</span><strong>{{ siteConfigsPayload?.items.length ?? 0 }}</strong></article>
+            <article class="metric-card glass-panel"><span>覆盖项</span><strong>{{ overrideConfigCount }}</strong></article>
+            <article class="metric-card glass-panel"><span>密钥项</span><strong>{{ secretConfigCount }}</strong></article>
+            <article class="metric-card glass-panel"><span>需重启</span><strong>{{ restartRequiredCount }}</strong></article>
+            <article class="metric-card glass-panel"><span>订阅模式</span><strong>{{ planModeLabel(billingSubscriptionMode) }}</strong></article>
+            <article class="metric-card glass-panel"><span>免费日额度</span><strong>{{ freeDailyQuota }}</strong></article>
+            <article class="metric-card glass-panel"><span>固定档数量</span><strong>{{ fixedTierCount }}</strong></article>
+            <article class="metric-card glass-panel"><span>加油包数量</span><strong>{{ addonCount }}</strong></article>
           </div>
 
           <section class="glass-panel panel-section">
             <div class="section-head">
-              <h2>Plan catalog</h2>
+              <h2>统一配置中心</h2>
               <div class="lookup-row compact">
-                <button class="btn btn-outline" :disabled="busy" @click="refreshPlans">Refresh</button>
-                <button class="btn btn-ghost" :disabled="busy" @click="handleAddPlanTier">Add Tier</button>
-                <button class="btn btn-primary" :disabled="busy || !planCatalog" @click="handleSavePlans">Save</button>
+                <button class="btn btn-outline" :disabled="busy" @click="refreshConfigs">刷新配置列表</button>
               </div>
             </div>
-
-            <div v-if="planCatalog" class="form-grid">
-              <label>
-                <span>Free Plan Daily Quota</span>
-                <input v-model.number="planCatalog.free_plan.daily_quota" class="input-field" type="number" min="1" />
-              </label>
+            <div class="mini-card section-note">
+              <strong>当前订阅模式：{{ planModeLabel(billingSubscriptionMode) }}</strong>
+              <span>
+                现在所有后端可配置项都统一通过本页治理。资费目录不再走独立维护入口；
+                `billing.subscription_mode`、阶梯参数、`tiers`、`addons` 与其他后端配置共享同一套修改和审计链路。
+              </span>
             </div>
-
-            <table class="data-table" v-if="planCatalog">
-              <thead><tr><th>Plan ID</th><th>Monthly Price</th><th>Daily Quota</th><th>Actions</th></tr></thead>
-              <tbody>
-                <tr v-for="(tier, index) in planCatalog.tiers" :key="tier.id || `draft-${index}`">
-                  <td><strong>{{ tier.id || 'Generated on save' }}</strong></td>
-                  <td><input v-model.number="tier.monthly_price" class="input-field slim-input" type="number" min="0.01" step="0.01" /></td>
-                  <td><input v-model.number="tier.daily_quota" class="input-field slim-input" type="number" min="1" step="1" /></td>
-                  <td class="actions-cell">
-                    <button class="btn btn-danger" :disabled="busy || planCatalog.tiers.length <= 1" @click="handleRemovePlanTier(index)">Remove</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
           </section>
+
+          <section class="glass-panel panel-section config-list-panel">
+            <div class="section-head">
+              <h2>站点配置</h2>
+              <div class="lookup-row compact">
+                <select v-model="configGroupFilter" class="input-field slim-select">
+                  <option value="all">全部分组</option>
+                  <option v-for="group in siteConfigsPayload?.groups ?? []" :key="group.key" :value="group.key">
+                    {{ group.label }} ({{ group.count }})
+                  </option>
+                </select>
+                <select v-model="configSourceFilter" class="input-field slim-select">
+                  <option value="all">全部来源</option>
+                  <option value="base">基础值</option>
+                  <option value="override">覆盖值</option>
+                </select>
+                <input v-model.trim="configSearchKeyword" class="input-field" placeholder="搜索 key / 标签 / 描述 / 当前值" />
+                <button class="btn btn-ghost" :disabled="busy" @click="refreshConfigs">刷新</button>
+              </div>
+            </div>
+            <div class="table-scroll config-table-scroll">
+              <table class="data-table config-table">
+                <thead>
+                  <tr>
+                    <th>配置项</th>
+                    <th>分组</th>
+                    <th>当前值</th>
+                    <th>基础值</th>
+                    <th>最近修改</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="item in filteredConfigItems" :key="item.key" :class="{ selected: selectedConfigKey === item.key }">
+                    <td><strong>{{ item.key }}</strong><span>{{ item.label }}</span></td>
+                    <td>
+                      <strong>{{ item.group_label }}</strong>
+                      <span>{{ item.requires_restart ? '需要重启' : '热更新' }} / {{ item.is_secret ? '密钥' : '普通项' }}</span>
+                    </td>
+                    <td>{{ item.value }}</td>
+                    <td>{{ item.base_value }}</td>
+                    <td>
+                      <strong>{{ item.updated_by_username || '-' }}</strong>
+                      <span>{{ formatDate(item.updated_at) }}</span>
+                    </td>
+                    <td class="actions-cell">
+                      <button class="btn btn-ghost" :disabled="busy" @click="openConfigEditor(item)">编辑</button>
+                      <button class="btn btn-outline" :disabled="busy" @click="handleLoadConfigAudit(item.key)">审计</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <div class="split-grid">
+            <section class="glass-panel panel-section form-panel">
+              <div class="section-head">
+                <h2>编辑配置</h2>
+                <button class="btn btn-ghost" :disabled="busy || !selectedConfig" @click="selectedConfig && syncConfigDraft(selectedConfig)">重置</button>
+              </div>
+              <div v-if="selectedConfig" class="form-grid">
+                <label><span>配置键</span><input :value="selectedConfig.key" class="input-field" disabled /></label>
+                <label><span>分组</span><input :value="selectedConfig.group_label" class="input-field" disabled /></label>
+                <label><span>当前值</span><input :value="selectedConfig.value" class="input-field" disabled /></label>
+                <label><span>基础值</span><input :value="selectedConfig.base_value" class="input-field" disabled /></label>
+                <label><span>变更备注</span><input v-model.trim="configChangeNote" class="input-field" placeholder="写入审计记录" /></label>
+                <label class="config-editor-wide">
+                  <span>配置说明</span>
+                  <textarea :value="selectedConfig.description" class="input-field config-meta-textarea" disabled></textarea>
+                </label>
+                <label v-if="typeof selectedConfig.raw_value === 'boolean'">
+                  <span>配置值</span>
+                  <select v-model="configDraftValue" class="input-field">
+                    <option value="true">true</option>
+                    <option value="false">false</option>
+                  </select>
+                </label>
+                <label v-else class="config-editor-wide">
+                  <span>配置值</span>
+                  <textarea v-model="configDraftValue" class="input-field config-textarea"></textarea>
+                </label>
+              </div>
+              <div v-else class="mini-card">
+                <strong>未选择配置项</strong>
+                <span>先从上方列表中选择一个配置项。</span>
+              </div>
+              <div class="lookup-row">
+                <button class="btn btn-primary" :disabled="busy || !selectedConfig" @click="handleSaveConfig">保存配置</button>
+                <button class="btn btn-danger" :disabled="busy || !selectedConfig" @click="handleClearConfigOverride">清空覆盖</button>
+              </div>
+            </section>
+
+            <section class="glass-panel panel-section">
+              <div class="section-head">
+                <h2>配置审计</h2>
+                <div class="lookup-row compact">
+                  <select v-model="configAuditLimit" class="input-field slim-select">
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                  </select>
+                  <button class="btn btn-ghost" :disabled="busy || !selectedConfigKey" @click="handleLoadConfigAudit()">刷新</button>
+                </div>
+              </div>
+              <div class="table-scroll">
+                <table class="data-table audit-table">
+                  <thead>
+                    <tr>
+                      <th>时间</th>
+                      <th>操作</th>
+                      <th>修改人</th>
+                      <th>旧值</th>
+                      <th>新值</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="item in configAuditPayload?.items ?? []" :key="item.id">
+                      <td>{{ formatDate(item.created_at) }}</td>
+                      <td><strong>{{ item.operation }}</strong><span>{{ item.change_note || '-' }}</span></td>
+                      <td><strong>{{ item.changed_by_username || '-' }}</strong><span>{{ item.changed_from_ip || '-' }}</span></td>
+                      <td>{{ item.old_value || '-' }}</td>
+                      <td>{{ item.new_value || '-' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
         </section>
       </main>
     </template>

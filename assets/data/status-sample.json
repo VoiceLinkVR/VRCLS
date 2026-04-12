@@ -1,8 +1,8 @@
 {
   "updatedAt": "2026-03-10T00:30:00+08:00",
   "overall": {
-    "title": "VRCLS 开发者服务状态",
-    "message": "当前核心服务均可用，翻译工作节点存在短时波动但已恢复。",
+    "title": "VoiceLinkVR 公开服务状态",
+    "message": "当前公开服务整体可用，翻译工作节点曾出现短时波动但已恢复。",
     "status": "operational",
     "uptime30d": 99.93
   },
@@ -10,13 +10,14 @@
     {
       "id": "web-api",
       "name": "公开 API",
-      "description": "登录、翻译与识别网关入口。",
+      "description": "登录、账户查询与公开翻译网关入口。",
       "status": "operational",
       "region": "CN-HK",
       "responseTimeMs": 132,
       "uptime30d": 99.97,
       "lastCheckedAt": "2026-03-10T00:29:40+08:00",
-      "publicEndpoint": "https://status.example.com/api/status/public"
+      "publicEndpoint": "https://status.example.com/status-probe/api/status/public",
+      "audience": "public"
     },
     {
       "id": "worker",
@@ -27,7 +28,8 @@
       "responseTimeMs": 178,
       "uptime30d": 99.88,
       "lastCheckedAt": "2026-03-10T00:29:41+08:00",
-      "publicEndpoint": "Internal worker"
+      "publicEndpoint": "internal worker",
+      "audience": "internal"
     },
     {
       "id": "storage",
@@ -38,14 +40,15 @@
       "responseTimeMs": 26,
       "uptime30d": 99.95,
       "lastCheckedAt": "2026-03-10T00:29:41+08:00",
-      "publicEndpoint": "Private network"
+      "publicEndpoint": "private network",
+      "audience": "internal"
     }
   ],
   "incidents": [
     {
       "id": "incident-20260308-worker",
       "title": "翻译工作节点延迟上升",
-      "summary": "工作节点在高峰时段出现响应时间增长，用户偶发看到翻译等待变长。",
+      "summary": "工作节点在高峰时段出现响应时间增长，部分用户曾看到翻译等待变长。",
       "impact": "minor",
       "status": "resolved",
       "startedAt": "2026-03-08T19:40:00+08:00",

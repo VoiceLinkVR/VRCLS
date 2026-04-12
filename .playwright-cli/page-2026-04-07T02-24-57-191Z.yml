@@ -1,0 +1,155 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e6]:
+      - paragraph [ref=e7]: VoiceLinkVR
+      - heading "VoiceLinkVR 控制台" [level=1] [ref=e8]
+    - generic [ref=e9]:
+      - generic [ref=e10]: 节点正常
+      - strong [ref=e11]: Codex Center User
+      - paragraph [ref=e12]: codex-1775523821@example.com
+      - generic [ref=e13]: "user_uuid: 0a81dc83"
+    - generic [ref=e14]:
+      - generic [ref=e15]: 语言
+      - combobox "语言" [ref=e16] [cursor=pointer]:
+        - option "中文" [selected]
+        - option "English"
+        - option "日本語"
+    - navigation [ref=e17]:
+      - link "UC 用户中心" [ref=e18] [cursor=pointer]:
+        - /url: /app/center
+        - generic [ref=e19]: UC
+        - generic [ref=e20]: 用户中心
+      - link "OV 服务总览" [ref=e21] [cursor=pointer]:
+        - /url: /app/overview
+        - generic [ref=e22]: OV
+        - generic [ref=e23]: 服务总览
+      - link "BI 订阅与额度" [ref=e24] [cursor=pointer]:
+        - /url: /app/billing
+        - generic [ref=e25]: BI
+        - generic [ref=e26]: 订阅与额度
+      - link "OR 账单明细" [ref=e27] [cursor=pointer]:
+        - /url: /app/orders
+        - generic [ref=e28]: OR
+        - generic [ref=e29]: 账单明细
+      - link "US API 监控" [ref=e30] [cursor=pointer]:
+        - /url: /app/usage
+        - generic [ref=e31]: US
+        - generic [ref=e32]: API 监控
+    - generic [ref=e33]:
+      - generic [ref=e34]:
+        - paragraph [ref=e35]: 800 / 800
+        - generic [ref=e36]: 翻译算力不足？ 及时补充云端算力，确保您的 VRC 社交实时字幕不中断。
+        - link "管理订阅" [ref=e37] [cursor=pointer]:
+          - /url: /app/billing
+      - button "退出登录" [ref=e38] [cursor=pointer]
+  - main [ref=e39]:
+    - generic [ref=e40]:
+      - generic [ref=e42]:
+        - paragraph [ref=e43]: 工作台
+        - heading "订阅与额度" [level=2] [ref=e44]
+      - generic [ref=e45]:
+        - generic [ref=e46]: "当前套餐: 免费额度"
+        - generic [ref=e47]: C
+    - generic [ref=e49]:
+      - generic [ref=e50]:
+        - generic [ref=e51]:
+          - paragraph [ref=e52]: 订阅管理
+          - heading "获取更强大的云端翻译算力" [level=2] [ref=e53]
+          - paragraph [ref=e54]: 先读取当前方案，再按服务端返回的可选档位发起支付。免费用户首次开通和已过期账户统一走续费流程。
+        - generic [ref=e55]:
+          - strong [ref=e56]: "800"
+          - text: 今日剩余额度
+      - generic [ref=e57]:
+        - article [ref=e58]:
+          - heading "当前配额状态" [level=3] [ref=e59]
+          - generic [ref=e60]:
+            - generic [ref=e61]:
+              - generic [ref=e62]: 当前方案
+              - strong [ref=e63]: 免费额度
+            - generic [ref=e64]:
+              - generic [ref=e65]: 每日限额
+              - strong [ref=e66]: 800/day
+            - generic [ref=e67]:
+              - generic [ref=e68]: 额度规则
+              - strong [ref=e69]: 计费规则：每 5 元可获取额外 1,500 单位算力配额。
+        - article [ref=e70]:
+          - heading "支付须知" [level=3] [ref=e71]
+          - paragraph [ref=e72]: 跳转到爱发电后请直接支付，不要修改金额，也不要修改时间或档位，否则系统可能无法自动识别。
+          - paragraph [ref=e73]: 跳转后请直接在收银台付款，修改金额可能导致订单无法自动生效。
+          - paragraph [ref=e74]: 这里的月按自然月理解，程序按过期时间计算生效，服务端会额外预留 1 天缓冲。
+          - paragraph [ref=e75]: 首次开通、免费账户和已过期账户都在这里直接选择可用续费档位。
+      - generic [ref=e76]:
+        - heading "管理服务" [level=3] [ref=e78]
+        - generic [ref=e79]:
+          - button "续订套餐 用于首次开通、免费账户续费和已过期账户续费，也可继续当前付费档位。" [ref=e80] [cursor=pointer]:
+            - strong [ref=e81]: 续订套餐
+            - text: 用于首次开通、免费账户续费和已过期账户续费，也可继续当前付费档位。
+          - button "升级套餐 仅对仍在有效期内的付费账户开放，用于切换到更高档位。" [disabled] [ref=e82]:
+            - strong [ref=e83]: 升级套餐
+            - text: 仅对仍在有效期内的付费账户开放，用于切换到更高档位。
+      - generic [ref=e84]:
+        - article [ref=e85]:
+          - heading "配置订阅" [level=3] [ref=e87]
+          - generic [ref=e88]:
+            - generic [ref=e89]: 订阅周期
+            - generic [ref=e90]:
+              - button "1 个月" [ref=e91] [cursor=pointer]
+              - button "2 个月" [ref=e92] [cursor=pointer]
+              - button "3 个月" [ref=e93] [cursor=pointer]
+              - button "4 个月" [ref=e94] [cursor=pointer]
+              - button "5 个月" [ref=e95] [cursor=pointer]
+              - button "6 个月" [ref=e96] [cursor=pointer]
+              - button "7 个月" [ref=e97] [cursor=pointer]
+              - button "8 个月" [ref=e98] [cursor=pointer]
+              - button "9 个月" [ref=e99] [cursor=pointer]
+              - button "10 个月" [ref=e100] [cursor=pointer]
+              - button "11 个月" [ref=e101] [cursor=pointer]
+              - button "12 个月" [ref=e102] [cursor=pointer]
+          - generic [ref=e103]:
+            - generic [ref=e104]: 方案规格
+            - generic [ref=e105]:
+              - button "¥5.00 1,500/day" [ref=e106] [cursor=pointer]:
+                - strong [ref=e107]: ¥5.00
+                - generic [ref=e108]: 1,500/day
+              - button "¥10.00 3,000/day" [ref=e109] [cursor=pointer]:
+                - strong [ref=e110]: ¥10.00
+                - generic [ref=e111]: 3,000/day
+              - button "¥20.00 6,000/day" [ref=e112] [cursor=pointer]:
+                - strong [ref=e113]: ¥20.00
+                - generic [ref=e114]: 6,000/day
+              - button "¥50.00 15,000/day" [ref=e115] [cursor=pointer]:
+                - strong [ref=e116]: ¥50.00
+                - generic [ref=e117]: 15,000/day
+              - button "¥100.00 30,000/day" [ref=e118] [cursor=pointer]:
+                - strong [ref=e119]: ¥100.00
+                - generic [ref=e120]: 30,000/day
+          - paragraph [ref=e121]: 金额档位以服务端返回为准。页面不再提供自定义金额入口。
+          - paragraph [ref=e122]: 预估增加算力：1,500
+          - generic [ref=e123]:
+            - paragraph [ref=e146]: 交易配置异常：操作类型与所选规格不符。
+            - button "前往安全支付 ➚" [ref=e124] [cursor=pointer]
+        - article [ref=e125]:
+          - heading "订单预览" [level=3] [ref=e127]
+          - generic [ref=e128]:
+            - generic [ref=e129]:
+              - generic [ref=e130]: 当前方案
+              - strong [ref=e131]: 免费额度
+              - text: Free
+            - generic [ref=e132]:
+              - generic [ref=e133]: 每日限额
+              - strong [ref=e134]: 800/day
+              - text: 今日剩余额度
+            - generic [ref=e135]:
+              - generic [ref=e136]: 订单总额
+              - strong [ref=e137]: ¥5.00
+              - text: 1 个月
+            - generic [ref=e138]:
+              - generic [ref=e139]: 升级后预计配额
+              - strong [ref=e140]: 1,500/day
+              - text: 预估增加算力：1,500
+      - generic [ref=e141]:
+        - generic [ref=e142]:
+          - heading "未完成订单" [level=3] [ref=e143]
+          - link "查看历史账单" [ref=e144] [cursor=pointer]:
+            - /url: /app/orders
+        - generic [ref=e145]: 当前账户无待处理订单。

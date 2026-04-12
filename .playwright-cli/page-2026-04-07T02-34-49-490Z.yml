@@ -1,0 +1,84 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e6]:
+      - paragraph [ref=e7]: VoiceLinkVR
+      - heading "VoiceLinkVR 控制台" [level=1] [ref=e8]
+    - generic [ref=e9]:
+      - generic [ref=e10]: 节点正常
+      - strong [ref=e11]: Codex Center User
+      - paragraph [ref=e12]: codex-1775523821@example.com
+      - generic [ref=e13]: "user_uuid: 0a81dc83"
+    - generic [ref=e14]:
+      - generic [ref=e15]: 语言
+      - combobox "语言" [ref=e16] [cursor=pointer]:
+        - option "中文" [selected]
+        - option "English"
+        - option "日本語"
+    - navigation [ref=e17]:
+      - link "UC 用户中心" [ref=e18] [cursor=pointer]:
+        - /url: /app/center
+        - generic [ref=e19]: UC
+        - generic [ref=e20]: 用户中心
+      - link "OV 服务总览" [ref=e21] [cursor=pointer]:
+        - /url: /app/overview
+        - generic [ref=e22]: OV
+        - generic [ref=e23]: 服务总览
+      - link "BI 订阅与额度" [ref=e24] [cursor=pointer]:
+        - /url: /app/billing
+        - generic [ref=e25]: BI
+        - generic [ref=e26]: 订阅与额度
+      - link "OR 账单明细" [ref=e27] [cursor=pointer]:
+        - /url: /app/orders
+        - generic [ref=e28]: OR
+        - generic [ref=e29]: 账单明细
+      - link "US API 监控" [ref=e30] [cursor=pointer]:
+        - /url: /app/usage
+        - generic [ref=e31]: US
+        - generic [ref=e32]: API 监控
+    - generic [ref=e33]:
+      - generic [ref=e34]:
+        - paragraph [ref=e35]: 800 / 800
+        - generic [ref=e36]: 翻译算力不足？ 及时补充云端算力，确保您的 VRC 社交实时字幕不中断。
+        - link "管理订阅" [ref=e37] [cursor=pointer]:
+          - /url: /app/billing
+      - button "退出登录" [ref=e38] [cursor=pointer]
+  - main [ref=e39]:
+    - generic [ref=e40]:
+      - generic [ref=e42]:
+        - paragraph [ref=e43]: 工作台
+        - heading "账单明细" [level=2] [ref=e44]
+      - generic [ref=e45]:
+        - generic [ref=e46]: "当前套餐: 免费额度"
+        - generic [ref=e47]: C
+    - generic [ref=e49]:
+      - generic [ref=e50]:
+        - generic [ref=e51]:
+          - paragraph [ref=e52]: 财务中心
+          - heading "账单与历史交易记录" [level=2] [ref=e53]
+          - paragraph [ref=e54]: 查询您的所有订阅更新与资源购买记录。如遇扣款成功但服务未开通的异常情况，请凭订单号联系技术支持。
+        - link "管理订阅" [ref=e55] [cursor=pointer]:
+          - /url: /app/billing
+      - generic [ref=e56]:
+        - generic [ref=e58]:
+          - heading "交易流水" [level=3] [ref=e59]
+          - paragraph [ref=e60]: 共检索到 1 笔记录
+        - table [ref=e62]:
+          - rowgroup [ref=e63]:
+            - row "交易流水号 业务类型 实付金额 支付网关 创建时间 订单状态 新窗口打开" [ref=e64]:
+              - columnheader "交易流水号" [ref=e65]
+              - columnheader "业务类型" [ref=e66]
+              - columnheader "实付金额" [ref=e67]
+              - columnheader "支付网关" [ref=e68]
+              - columnheader "创建时间" [ref=e69]
+              - columnheader "订单状态" [ref=e70]
+              - columnheader "新窗口打开" [ref=e71]
+          - rowgroup [ref=e72]:
+            - row "5 续订套餐 ¥5.00 Afdian 2026/04/07 10:32 已取消 -" [ref=e85]:
+              - cell "5" [ref=e74]
+              - cell "续订套餐" [ref=e75]
+              - cell "¥5.00" [ref=e76]
+              - cell "Afdian" [ref=e77]
+              - cell "2026/04/07 10:32" [ref=e78]
+              - cell "已取消" [ref=e86]:
+                - generic [ref=e80]: 已取消
+              - cell "-" [ref=e87]

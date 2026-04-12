@@ -57,6 +57,38 @@ function buildSnapshot(services, statusOverride) {
   };
 }
 
+function normalizeAudience(value) {
+  const audience = String(value || '').trim().toLowerCase();
+  return audience || null;
+}
+
+function serviceAudience(service) {
+  if (service.public === false) {
+    return 'internal';
+  }
+  return normalizeAudience(service.audience || service.visibility) || 'public';
+}
+
+function filterSnapshot(snapshot, audience) {
+  const normalizedAudience = normalizeAudience(audience);
+  if (!normalizedAudience) {
+    return JSON.parse(JSON.stringify(snapshot));
+  }
+
+  const services = (snapshot.services || [])
+    .filter((service) => serviceAudience(service) === normalizedAudience)
+    .map((service) => ({ ...service }));
+  const visibleIds = new Set(services.map((service) => service.id).filter(Boolean));
+  const visibleIncidents = (snapshot.incidents || [])
+    .filter((incident) => Array.from(visibleIds).some((serviceId) => String(incident.id || '').startsWith(`${serviceId}-`)))
+    .map((incident) => ({ ...incident }));
+
+  const filtered = buildSnapshot(services);
+  filtered.updatedAt = snapshot.updatedAt || filtered.updatedAt;
+  filtered.incidents = visibleIncidents;
+  return filtered;
+}
+
 function recordIncident(service, previousStatus, nextStatus) {
   incidents.unshift({
     id: `${service.id}-${Date.now()}`,
@@ -104,6 +136,8 @@ async function probeService(service) {
       id: service.id,
       name: service.name,
       description: service.description,
+      audience: service.audience || service.visibility || (service.public === false ? 'internal' : 'public'),
+      public: service.public,
       status,
       region: service.region || '--',
       responseTimeMs,
@@ -124,6 +158,8 @@ async function probeService(service) {
       id: service.id,
       name: service.name,
       description: `${service.description} (${error.name || 'Error'})`,
+      audience: service.audience || service.visibility || (service.public === false ? 'internal' : 'public'),
+      public: service.public,
       status: 'outage',
       region: service.region || '--',
       responseTimeMs: null,
@@ -162,6 +198,8 @@ function writeNotFound(response, origin) {
 
 const server = http.createServer(async (request, response) => {
   const origin = config.site.publicOrigin || '*';
+  const requestUrl = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+  const audience = requestUrl.searchParams.get('audience');
 
   if (request.method === 'OPTIONS') {
     response.writeHead(204, {
@@ -172,19 +210,19 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  if (request.url === '/healthz') {
+  if (requestUrl.pathname === '/healthz') {
     writeJson(response, { ok: true, updatedAt: latestSnapshot.updatedAt }, origin);
     return;
   }
 
-  if (request.url === '/api/status/public') {
-    writeJson(response, latestSnapshot, origin);
+  if (requestUrl.pathname === '/api/status/public') {
+    writeJson(response, filterSnapshot(latestSnapshot, audience), origin);
     return;
   }
 
-  if (request.url === '/api/status/refresh') {
+  if (requestUrl.pathname === '/api/status/refresh') {
     await refreshSnapshot();
-    writeJson(response, latestSnapshot, origin);
+    writeJson(response, filterSnapshot(latestSnapshot, audience), origin);
     return;
   }
 

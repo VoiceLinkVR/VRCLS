@@ -1,14 +1,38 @@
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { t, translateApiError } from '../i18n'
 
+const API_PREFIX = '/v2'
+const AUTH_API_PREFIX = `${API_PREFIX}/auth`
+const ACCOUNT_API_PREFIX = `${API_PREFIX}/api/account`
+const BILLING_API_PREFIX = `${API_PREFIX}/api/billing`
+const MIGRATION_STORAGE_KEY = 'vrcls.portal.migration'
+
+type NullableString = string | null | undefined
+
 type AuthUser = {
-  id: string
-  username: string
-  email: string
-  display_name: string
-  email_verified: boolean
-  is_admin: boolean
+  id?: string | number | null
+  user_uuid?: string | null
+  userUuid?: string | null
+  username?: string | null
+  email?: string | null
+  display_name?: string | null
+  displayName?: string | null
+  email_verified?: boolean | null
+  emailVerified?: boolean | null
+  is_admin?: boolean | null
+  identity_version?: number | null
+  identityVersion?: number | null
+  migration_required?: boolean | null
+  migrationRequired?: boolean | null
+  legacy_username?: string | null
+  legacyUsername?: string | null
+  plan_name?: string | null
+  planName?: string | null
+  plan_price?: number | null
+  planPrice?: number | null
+  account_status?: string | null
+  accountStatus?: string | null
 }
 
 type AuthTokenResponse = {
@@ -25,14 +49,30 @@ type AuthVerificationChallengeResponse = {
 }
 
 type PortalProfileResponse = {
-  id: string
-  username: string
-  displayName: string
-  email: string
-  emailVerified: boolean
-  planName: string
-  planPrice: number
-  accountStatus: string
+  id?: string | number | null
+  userUuid?: string | null
+  user_uuid?: string | null
+  username?: string | null
+  legacyUsername?: string | null
+  legacy_username?: string | null
+  displayName?: string | null
+  display_name?: string | null
+  email?: string | null
+  emailVerified?: boolean | null
+  email_verified?: boolean | null
+  identityVersion?: number | null
+  identity_version?: number | null
+  migrationRequired?: boolean | null
+  migration_required?: boolean | null
+  planName?: string | null
+  plan_name?: string | null
+  planPrice?: number | null
+  plan_price?: number | null
+  accountStatus?: string | null
+  account_status?: string | null
+  roles?: string[] | null
+  createdAt?: string | null
+  lastLoginAt?: string | null
 }
 
 type PortalEntitlementResponse = {
@@ -46,11 +86,14 @@ type PortalEntitlementResponse = {
 export type PortalBillingGuideOption = {
   allowed: boolean
   readonly: boolean
+  pricingMode: string
   defaultMonthlyPrice: number | null
   minMonthlyPrice: number | null
   maxMonthlyPrice: number | null
   step: number | null
   targetResourceQuotaPreview: number | null
+  priceOptions: number[]
+  quotaPreviewByPrice: Record<string, number>
 }
 
 export type PortalBillingAddonGuide = {
@@ -66,10 +109,12 @@ export type PortalBillingAddonGuide = {
 }
 
 export type PortalBillingGuide = {
+  userUuid?: string | null
   username: string
   isRegistered: boolean
   isExpired: boolean
   status: string
+  subscriptionMode: string
   priceStep: number
   resourceIncrementPerStep: number
   displayPlanName: string
@@ -98,6 +143,7 @@ export type PortalOrder = {
   status: string
   createdAt: string | null
   payUrl: string
+  cancellable: boolean
 }
 
 type PortalOrderIntentResponse = {
@@ -111,6 +157,23 @@ type PortalActionResponse = {
   nextUrl: string
   token: string
   expiresIn: number
+}
+
+export type LegacyMigrationSession = {
+  migrationRequired: boolean
+  emailBound: boolean
+  emailVerified: boolean
+  legacyUserId: number | null
+  legacyUsername: string
+  migrationToken: string
+}
+
+type LegacyLoginResponse = LegacyMigrationSession
+
+type LegacyLinkResponse = {
+  message: string
+  mergedOrders?: number | null
+  mergedAddons?: number | null
 }
 
 export type DeviceAuthorizationRequest = {
@@ -143,7 +206,9 @@ export type AccountUsageDailyStat = {
 }
 
 export type AccountUsage = {
+  user_uuid?: string | null
   username: string
+  display_name?: string | null
   is_test_user: boolean
   is_active: boolean
   is_expired: boolean
@@ -173,14 +238,20 @@ export type AccountUsage = {
 }
 
 export type UserProfile = {
-  id: string
-  username: string
+  userUuid: string
+  shortUserUuid: string
+  legacyUsername: string
   name: string
   email: string
   emailVerified: boolean
   planName: string
   planPrice: number
   accountStatus: string
+  identityVersion: number
+  migrationRequired: boolean
+  roles: string[]
+  createdAt: string
+  lastLoginAt: string
 }
 
 export type CheckoutRequest = {
@@ -203,6 +274,102 @@ class ApiError extends Error {
     this.status = status
     this.code = code
     this.payload = payload
+  }
+}
+
+function readMigrationSession(): LegacyMigrationSession | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const rawValue = window.sessionStorage.getItem(MIGRATION_STORAGE_KEY)
+  if (!rawValue) {
+    return null
+  }
+
+  try {
+    return JSON.parse(rawValue) as LegacyMigrationSession
+  } catch {
+    window.sessionStorage.removeItem(MIGRATION_STORAGE_KEY)
+    return null
+  }
+}
+
+function writeMigrationSession(session: LegacyMigrationSession | null) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  if (!session) {
+    window.sessionStorage.removeItem(MIGRATION_STORAGE_KEY)
+    return
+  }
+
+  window.sessionStorage.setItem(MIGRATION_STORAGE_KEY, JSON.stringify(session))
+}
+
+function pickFirstString(...values: NullableString[]): string {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim()
+    }
+  }
+  return ''
+}
+
+function shortUuid(value: string): string {
+  if (!value) {
+    return ''
+  }
+  return value.split('-')[0] || value.slice(0, 8)
+}
+
+function resolveUserUuid(payload: { user_uuid?: NullableString; userUuid?: NullableString; id?: string | number | null }): string {
+  return pickFirstString(
+    payload.user_uuid,
+    payload.userUuid,
+    typeof payload.id === 'number' || typeof payload.id === 'string' ? String(payload.id) : '',
+  )
+}
+
+function resolveDisplayName(payload: {
+  display_name?: NullableString
+  displayName?: NullableString
+  username?: NullableString
+  user_uuid?: NullableString
+  userUuid?: NullableString
+}): string {
+  const fallbackUuid = resolveUserUuid(payload)
+  return (
+    pickFirstString(payload.display_name, payload.displayName, payload.username) ||
+    (fallbackUuid ? `用户 ${shortUuid(fallbackUuid)}` : 'VoiceLinkVR User')
+  )
+}
+
+function toProfile(
+  payload: AuthUser | PortalProfileResponse,
+  currentProfile?: UserProfile | null,
+): UserProfile {
+  const userUuid = resolveUserUuid(payload)
+  const legacyUsername = pickFirstString(payload.legacy_username, payload.legacyUsername, payload.username)
+
+  return {
+    userUuid,
+    shortUserUuid: shortUuid(userUuid),
+    legacyUsername,
+    name: resolveDisplayName(payload),
+    email: pickFirstString(payload.email),
+    emailVerified: Boolean(payload.email_verified ?? payload.emailVerified),
+    planName: pickFirstString(payload.plan_name, payload.planName, currentProfile?.planName),
+    planPrice: Number(payload.plan_price ?? payload.planPrice ?? currentProfile?.planPrice ?? 0),
+    accountStatus: pickFirstString(payload.account_status, payload.accountStatus, currentProfile?.accountStatus, 'active'),
+    identityVersion: Number(payload.identity_version ?? payload.identityVersion ?? currentProfile?.identityVersion ?? 2),
+    migrationRequired: Boolean(payload.migration_required ?? payload.migrationRequired ?? currentProfile?.migrationRequired),
+    roles: Array.isArray((payload as PortalProfileResponse).roles)
+      ? ((payload as PortalProfileResponse).roles ?? []).map((value) => String(value))
+      : currentProfile?.roles ?? [],
+    createdAt: pickFirstString((payload as PortalProfileResponse).createdAt, currentProfile?.createdAt),
+    lastLoginAt: pickFirstString((payload as PortalProfileResponse).lastLoginAt, currentProfile?.lastLoginAt),
   }
 }
 
@@ -254,19 +421,6 @@ async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> 
   return data as T
 }
 
-function toProfile(authUser: AuthUser, currentProfile?: UserProfile | null): UserProfile {
-  return {
-    id: authUser.id,
-    username: authUser.username,
-    name: authUser.display_name || authUser.username,
-    email: authUser.email,
-    emailVerified: authUser.email_verified,
-    planName: currentProfile?.planName ?? '',
-    planPrice: currentProfile?.planPrice ?? 0,
-    accountStatus: currentProfile?.accountStatus ?? 'active',
-  }
-}
-
 function localizeError(error: unknown, fallbackKey: string): string {
   if (error instanceof ApiError) {
     return translateApiError(
@@ -293,8 +447,14 @@ export const useUserStore = defineStore('user', () => {
   const billingGuide = ref<PortalBillingGuide | null>(null)
   const orders = ref<PortalOrder[]>([])
   const usage = ref<AccountUsage | null>(null)
+  const migrationSession = ref<LegacyMigrationSession | null>(readMigrationSession())
+
+  watch(migrationSession, (value) => {
+    writeMigrationSession(value)
+  })
 
   const isAuthenticated = computed(() => Boolean(profile.value))
+  const isMigrationPending = computed(() => Boolean(profile.value?.migrationRequired || migrationSession.value))
   const remainingQuota = computed(() =>
     Math.max(
       usage.value?.today_remaining_daily ??
@@ -322,6 +482,10 @@ export const useUserStore = defineStore('user', () => {
     orders.value.filter((order) => order.status === 'pending' && Boolean(order.payUrl)),
   )
 
+  function clearMigrationSession() {
+    migrationSession.value = null
+  }
+
   function resetState() {
     profile.value = null
     entitlements.value = null
@@ -331,8 +495,11 @@ export const useUserStore = defineStore('user', () => {
     authError.value = ''
   }
 
-  function applyAuthUser(authUser: AuthUser) {
+  function applyAuthUser(authUser: AuthUser | PortalProfileResponse) {
     profile.value = toProfile(authUser, profile.value)
+    if (!profile.value.migrationRequired) {
+      clearMigrationSession()
+    }
   }
 
   async function loadUsage(startDate?: string, endDate?: string) {
@@ -344,7 +511,7 @@ export const useUserStore = defineStore('user', () => {
       search.set('end_date', endDate)
     }
     const suffix = search.size > 0 ? `?${search.toString()}` : ''
-    usage.value = await requestJson<AccountUsage>(`/api/account/usage${suffix}`)
+    usage.value = await requestJson<AccountUsage>(`${ACCOUNT_API_PREFIX}/usage${suffix}`)
   }
 
   async function loadPortalData() {
@@ -353,23 +520,13 @@ export const useUserStore = defineStore('user', () => {
     }
 
     const [portalProfile, nextEntitlements, nextGuide, nextOrders] = await Promise.all([
-      requestJson<PortalProfileResponse>('/api/account/profile'),
-      requestJson<PortalEntitlementResponse>('/api/account/entitlements'),
-      requestJson<PortalBillingGuide>('/api/billing/guide'),
-      requestJson<PortalOrder[]>('/api/account/orders'),
+      requestJson<PortalProfileResponse>(`${ACCOUNT_API_PREFIX}/profile`),
+      requestJson<PortalEntitlementResponse>(`${ACCOUNT_API_PREFIX}/entitlements`),
+      requestJson<PortalBillingGuide>(`${BILLING_API_PREFIX}/guide`),
+      requestJson<PortalOrder[]>(`${ACCOUNT_API_PREFIX}/orders`),
     ])
 
-    profile.value = {
-      id: portalProfile.id,
-      username: portalProfile.username,
-      name: portalProfile.displayName || portalProfile.username,
-      email: portalProfile.email,
-      emailVerified: portalProfile.emailVerified,
-      planName: portalProfile.planName,
-      planPrice: portalProfile.planPrice,
-      accountStatus: portalProfile.accountStatus,
-    }
-
+    profile.value = toProfile(portalProfile, profile.value)
     entitlements.value = nextEntitlements
     billingGuide.value = nextGuide
     orders.value = nextOrders
@@ -387,7 +544,8 @@ export const useUserStore = defineStore('user', () => {
     }
 
     try {
-      const user = await requestJson<AuthUser>('/auth/me')
+      const response = await requestJson<AuthUser | { user: AuthUser }>(`${AUTH_API_PREFIX}/me`)
+      const user = 'user' in response ? response.user : response
       applyAuthUser(user)
     } catch (error) {
       if (!(error instanceof ApiError) || error.status !== 401) {
@@ -411,9 +569,9 @@ export const useUserStore = defineStore('user', () => {
     loading.value = true
     authError.value = ''
     try {
-      const response = await requestJson<AuthTokenResponse>('/auth/login', {
+      const response = await requestJson<AuthTokenResponse>(`${AUTH_API_PREFIX}/login`, {
         method: 'POST',
-        body: JSON.stringify({ login: email, password }),
+        body: JSON.stringify({ email, password }),
       })
       applyAuthUser(response.user)
       await loadPortalData()
@@ -426,8 +584,27 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  async function legacyLogin(legacyUsername: string, legacyPassword: string) {
+    loading.value = true
+    authError.value = ''
+    try {
+      const response = await requestJson<LegacyLoginResponse>(`${ACCOUNT_API_PREFIX}/legacy-login`, {
+        method: 'POST',
+        body: JSON.stringify({ legacyUsername, legacyPassword }),
+      })
+      migrationSession.value = response
+      initialized.value = true
+      return response
+    } catch (error) {
+      authError.value = localizeError(error, 'errors.login')
+      throw error
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function sendRegisterCode(email: string) {
-    return await requestJson<AuthVerificationChallengeResponse>('/auth/register/send-code', {
+    return await requestJson<AuthVerificationChallengeResponse>(`${AUTH_API_PREFIX}/register/send-code`, {
       method: 'POST',
       body: JSON.stringify({ email }),
     })
@@ -436,19 +613,17 @@ export const useUserStore = defineStore('user', () => {
   async function register(
     email: string,
     password: string,
-    displayName: string,
     verificationToken: string,
     verificationCode: string,
   ) {
     loading.value = true
     authError.value = ''
     try {
-      const response = await requestJson<AuthTokenResponse>('/auth/register', {
+      const response = await requestJson<AuthTokenResponse>(`${AUTH_API_PREFIX}/register`, {
         method: 'POST',
         body: JSON.stringify({
           email,
           password,
-          display_name: displayName,
           verification_token: verificationToken,
           verification_code: verificationCode,
         }),
@@ -466,11 +641,12 @@ export const useUserStore = defineStore('user', () => {
 
   async function logout() {
     try {
-      await requestJson<{ message: string }>('/auth/logout', { method: 'POST' })
+      await requestJson<{ message: string }>(`${AUTH_API_PREFIX}/logout`, { method: 'POST' })
     } catch {
       // Ignore logout transport errors and clear local state anyway.
     } finally {
       resetState()
+      clearMigrationSession()
       initialized.value = true
     }
   }
@@ -482,6 +658,15 @@ export const useUserStore = defineStore('user', () => {
     await loadPortalData()
   }
 
+  async function updateProfile(payload: { displayName?: string }) {
+    const response = await requestJson<PortalProfileResponse>(`${ACCOUNT_API_PREFIX}/profile`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    })
+    profile.value = toProfile(response, profile.value)
+    return profile.value
+  }
+
   function openPaymentUrl(payUrl: string) {
     if (!payUrl) {
       return
@@ -490,7 +675,7 @@ export const useUserStore = defineStore('user', () => {
   }
 
   async function beginCheckout(payload: CheckoutRequest) {
-    const response = await requestJson<PortalOrderIntentResponse>('/api/billing/order-intents', {
+    const response = await requestJson<PortalOrderIntentResponse>(`${BILLING_API_PREFIX}/order-intents`, {
       method: 'POST',
       body: JSON.stringify(payload),
     })
@@ -501,8 +686,16 @@ export const useUserStore = defineStore('user', () => {
     return response
   }
 
+  async function cancelOrder(orderId: string) {
+    const response = await requestJson<PortalActionResponse>(`${BILLING_API_PREFIX}/orders/${encodeURIComponent(orderId)}/cancel`, {
+      method: 'POST',
+    })
+    await refreshData()
+    return response
+  }
+
   async function sendChangePasswordCode() {
-    return await requestJson<PortalActionResponse>('/api/account/change-password/send-code', {
+    return await requestJson<PortalActionResponse>(`${ACCOUNT_API_PREFIX}/change-password/send-code`, {
       method: 'POST',
     })
   }
@@ -512,50 +705,70 @@ export const useUserStore = defineStore('user', () => {
     verificationCode: string,
     newPassword: string,
   ) {
-    return await requestJson<PortalActionResponse>('/api/account/change-password', {
+    return await requestJson<PortalActionResponse>(`${ACCOUNT_API_PREFIX}/change-password`, {
       method: 'POST',
       body: JSON.stringify({ verificationToken, verificationCode, newPassword }),
     })
   }
 
   async function bindEmail(email: string) {
-    const response = await requestJson<PortalActionResponse>('/api/account/bind-email', {
+    const response = await requestJson<PortalActionResponse>(`${ACCOUNT_API_PREFIX}/bind-email`, {
       method: 'POST',
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({
+        email,
+        migrationToken: migrationSession.value?.migrationToken ?? undefined,
+      }),
     })
-    await refreshData()
+    if (profile.value) {
+      await refreshData()
+    }
     return response
   }
 
   async function verifyEmail(token: string, code: string) {
-    const response = await requestJson<PortalActionResponse>('/api/account/verify-email', {
+    const response = await requestJson<PortalActionResponse>(`${ACCOUNT_API_PREFIX}/verify-email`, {
       method: 'POST',
-      body: JSON.stringify({ token, code }),
+      body: JSON.stringify({
+        token,
+        code,
+        migrationToken: migrationSession.value?.migrationToken ?? undefined,
+      }),
     })
     await bootstrap(true)
     return response
   }
 
   async function forgotPassword(email: string) {
-    return await requestJson<PortalActionResponse>('/api/account/forgot-password', {
+    return await requestJson<PortalActionResponse>(`${ACCOUNT_API_PREFIX}/forgot-password`, {
       method: 'POST',
       body: JSON.stringify({ email }),
     })
   }
 
   async function resetPassword(token: string, code: string, password: string) {
-    return await requestJson<PortalActionResponse>('/api/account/reset-password', {
+    return await requestJson<PortalActionResponse>(`${ACCOUNT_API_PREFIX}/reset-password`, {
       method: 'POST',
       body: JSON.stringify({ token, code, password }),
     })
   }
 
+  async function legacyLink(legacyUsername: string, legacyPassword: string) {
+    const response = await requestJson<LegacyLinkResponse>(`${ACCOUNT_API_PREFIX}/legacy-link`, {
+      method: 'POST',
+      body: JSON.stringify({ legacyUsername, legacyPassword }),
+    })
+    await refreshData()
+    return response
+  }
+
   async function loadDeviceAuthorization(userCode: string) {
-    return await requestJson<DeviceAuthorizationRequest>(`/auth/device/requests/${encodeURIComponent(userCode)}`)
+    return await requestJson<DeviceAuthorizationRequest>(
+      `${AUTH_API_PREFIX}/device/requests/${encodeURIComponent(userCode)}`,
+    )
   }
 
   async function decideDeviceAuthorization(userCode: string, decision: 'approve' | 'deny') {
-    return await requestJson<DeviceAuthorizationDecisionResponse>('/auth/device/authorize', {
+    return await requestJson<DeviceAuthorizationDecisionResponse>(`${AUTH_API_PREFIX}/device/authorize`, {
       method: 'POST',
       body: JSON.stringify({ user_code: userCode, decision }),
     })
@@ -567,7 +780,9 @@ export const useUserStore = defineStore('user', () => {
     bindEmail,
     billingGuide,
     bootstrap,
+    cancelOrder,
     changePasswordWithCode,
+    clearMigrationSession,
     currentPlanPrice,
     dailyLimit,
     decideDeviceAuthorization,
@@ -575,10 +790,14 @@ export const useUserStore = defineStore('user', () => {
     forgotPassword,
     initialized,
     isAuthenticated,
+    isMigrationPending,
+    legacyLink,
+    legacyLogin,
     loadDeviceAuthorization,
     loading,
     login,
     logout,
+    migrationSession,
     openPaymentUrl,
     orders,
     pendingOrders,
@@ -595,6 +814,7 @@ export const useUserStore = defineStore('user', () => {
     requestTotal,
     shouldUpgrade,
     usedQuota,
+    updateProfile,
     usage,
     loadUsage,
     verifyEmail,

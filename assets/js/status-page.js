@@ -57,9 +57,33 @@ function averageLatency(services) {
   return `${avg} ms`
 }
 
+function isPublicService(service) {
+  const visibility = String(service.visibility || service.audience || '').toLowerCase()
+  const endpoint = String(service.publicEndpoint || '').toLowerCase()
+  const serviceName = String(service.name || '').toLowerCase()
+  const serviceId = String(service.id || '').toLowerCase()
+
+  if (service.public === false) {
+    return false
+  }
+  if (visibility === 'internal' || visibility === 'private') {
+    return false
+  }
+  if (
+    endpoint.includes('internal') ||
+    endpoint.includes('private') ||
+    serviceName.includes('admin') ||
+    serviceId.includes('admin') ||
+    serviceId.includes('manage')
+  ) {
+    return false
+  }
+  return true
+}
+
 function renderServices(services) {
   if (!services.length) {
-    elements.servicesGrid.innerHTML = '<div class="empty-state">当前暂无可展示的服务节点数据。</div>'
+    elements.servicesGrid.innerHTML = '<div class="empty-state">当前没有可公开展示的服务节点。</div>'
     return
   }
 
@@ -75,11 +99,10 @@ function renderServices(services) {
         <span class="status-badge status-${service.status}">${statusLabel(service.status)}</span>
       </div>
       <div class="service-meta">
-        <span><strong>节点区域</strong><small>${service.region || '--'}</small></span>
+        <span><strong>区域</strong><small>${service.region || '--'}</small></span>
         <span><strong>响应延迟</strong><small>${Number.isFinite(Number(service.responseTimeMs)) ? `${service.responseTimeMs} ms` : '--'}</small></span>
         <span><strong>30 天可用率</strong><small>${Number.isFinite(Number(service.uptime30d)) ? `${service.uptime30d}%` : '--'}</small></span>
         <span><strong>最近检查</strong><small>${formatDate(service.lastCheckedAt)}</small></span>
-        <span><strong>服务标识</strong><small>${service.publicEndpoint || '--'}</small></span>
       </div>
     </article>
   `,
@@ -105,7 +128,7 @@ function renderIncidents(incidents) {
         <span class="severity ${incident.impact || 'minor'}">${incident.impact || 'minor'}</span>
       </div>
       <div class="incident-meta">
-        <span><strong>当前阶段</strong><small>${incident.status || '--'}</small></span>
+        <span><strong>阶段</strong><small>${incident.status || '--'}</small></span>
         <span><strong>开始时间</strong><small>${formatDate(incident.startedAt)}</small></span>
         <span><strong>恢复时间</strong><small>${formatDate(incident.resolvedAt)}</small></span>
       </div>
@@ -127,17 +150,17 @@ function renderIncidents(incidents) {
 }
 
 function render(payload, dataSource) {
-  const services = payload.services || []
+  const services = (payload.services || []).filter(isPublicService)
   const overall = payload.overall || {}
 
   elements.title.textContent = overall.title || 'VoiceLinkVR 平台运行状态'
-  elements.message.textContent = overall.message || '实时监控 API 网关、翻译节点与云端数据库的健康状况。'
+  elements.message.textContent = overall.message || '实时监控公开服务、翻译节点与平台状态。'
   setBadge(overall.status || 'loading', statusLabel(overall.status || 'loading'))
   elements.updated.textContent = formatDate(payload.updatedAt)
   elements.services.textContent = String(services.length)
   elements.latency.textContent = averageLatency(services)
   elements.uptime.textContent = Number.isFinite(Number(overall.uptime30d)) ? `${overall.uptime30d}%` : '--'
-  elements.apiBaseNote.textContent = `Data Source: ${dataSource}`
+  elements.apiBaseNote.textContent = `Data Source: ${dataSource} · public`
 
   renderServices(services)
   renderIncidents(payload.incidents || [])
@@ -168,7 +191,17 @@ function buildApiUrl(forceRefresh) {
   if (!baseUrl) return ''
 
   const normalizedBase = baseUrl.replace(/\/$/, '')
-  return `${normalizedBase}${forceRefresh ? '/api/status/refresh' : '/api/status/public'}`
+  const path = forceRefresh
+    ? statusConfig.refreshStatusPath || '/api/status/refresh'
+    : statusConfig.publicStatusPath || '/api/status/public'
+  const params = new URLSearchParams()
+
+  if (statusConfig.serviceAudience) {
+    params.set('audience', statusConfig.serviceAudience)
+  }
+
+  const queryString = params.toString()
+  return `${normalizedBase}${path}${queryString ? `?${queryString}` : ''}`
 }
 
 async function loadStatus(forceRefresh = false) {
@@ -193,7 +226,7 @@ async function loadStatus(forceRefresh = false) {
       try {
         const samplePayload = await fetchJson(statusConfig.sampleDataPath)
         render(samplePayload, 'fallback sample')
-        elements.message.textContent = `实时状态接口获取失败，当前展示后备数据：${message}`
+        elements.message.textContent = `实时状态接口获取失败，当前显示后备数据：${message}`
       } catch (sampleError) {
         const fallbackMessage = sampleError instanceof Error ? sampleError.message : String(sampleError)
         elements.message.textContent = `状态页加载失败：${fallbackMessage}`

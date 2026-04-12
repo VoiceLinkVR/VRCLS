@@ -5,7 +5,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib import error, request
+from urllib import error, parse, request
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -67,6 +67,40 @@ def build_snapshot(services, status_override=None):
         "services": services,
         "incidents": deepcopy(INCIDENTS[:10]),
     }
+
+
+def normalize_audience(value):
+    audience = (value or "").strip().lower()
+    return audience or None
+
+
+def service_audience(service):
+    if service.get("public") is False:
+        return "internal"
+    return normalize_audience(service.get("audience") or service.get("visibility")) or "public"
+
+
+def filter_snapshot(snapshot, audience=None):
+    normalized_audience = normalize_audience(audience)
+    if normalized_audience is None:
+        return deepcopy(snapshot)
+
+    services = [
+        deepcopy(service)
+        for service in snapshot.get("services", [])
+        if service_audience(service) == normalized_audience
+    ]
+    visible_ids = {service.get("id") for service in services if service.get("id")}
+    incidents = [
+        deepcopy(item)
+        for item in snapshot.get("incidents", [])
+        if any(str(item.get("id", "")).startswith(f"{service_id}-") for service_id in visible_ids)
+    ]
+
+    filtered = build_snapshot(services)
+    filtered["updatedAt"] = snapshot.get("updatedAt") or filtered["updatedAt"]
+    filtered["incidents"] = incidents
+    return filtered
 
 
 def record_incident(service, previous_status, next_status):
@@ -209,20 +243,24 @@ class StatusHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        if self.path == "/healthz":
+        parsed = parse.urlparse(self.path)
+        query = parse.parse_qs(parsed.query)
+        audience = (query.get("audience") or [None])[0]
+
+        if parsed.path == "/healthz":
             with LOCK:
                 payload = {"ok": True, "updatedAt": LATEST_SNAPSHOT.get("updatedAt")}
             self._write_json(payload)
             return
 
-        if self.path == "/api/status/public":
+        if parsed.path == "/api/status/public":
             with LOCK:
-                payload = deepcopy(LATEST_SNAPSHOT)
+                payload = filter_snapshot(LATEST_SNAPSHOT, audience)
             self._write_json(payload)
             return
 
-        if self.path == "/api/status/refresh":
-            payload = refresh_snapshot()
+        if parsed.path == "/api/status/refresh":
+            payload = filter_snapshot(refresh_snapshot(), audience)
             self._write_json(payload)
             return
 

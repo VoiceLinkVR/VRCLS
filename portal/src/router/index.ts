@@ -20,7 +20,7 @@ const router = createRouter({
       path: '/authorize',
       name: 'authorize',
       component: () => import('../views/Authorize.vue'),
-      meta: { requiresAuth: true, title: '控制台授权登录' },
+      meta: { requiresAuth: true, title: '控制台授权登录', allowMigration: true },
     },
     {
       path: '/reset-password',
@@ -32,17 +32,23 @@ const router = createRouter({
       path: '/verify-email',
       name: 'verify-email',
       component: () => import('../views/VerifyEmail.vue'),
-      meta: { title: '验证邮箱' },
+      meta: { title: '验证邮箱', allowMigration: true },
     },
     {
       path: '/',
       component: () => import('../layouts/DashboardLayout.vue'),
       children: [
         {
+          path: 'center',
+          name: 'center',
+          component: () => import('../views/dashboard/UserCenter.vue'),
+          meta: { requiresAuth: true, title: '用户中心', allowMigration: true },
+        },
+        {
           path: 'overview',
           name: 'overview',
           component: () => import('../views/dashboard/Overview.vue'),
-          meta: { requiresAuth: true, titleKey: 'route.overview' },
+          meta: { requiresAuth: true, titleKey: 'route.overview', allowMigration: true },
         },
         {
           path: 'billing',
@@ -64,15 +70,11 @@ const router = createRouter({
         },
         {
           path: 'security',
-          name: 'security',
-          component: () => import('../views/dashboard/Security.vue'),
-          meta: { requiresAuth: true, title: '账户安全' },
+          redirect: '/center',
         },
         {
           path: 'email',
-          name: 'email',
-          component: () => import('../views/dashboard/Email.vue'),
-          meta: { requiresAuth: true, title: '邮箱设置' },
+          redirect: '/center',
         },
       ],
     },
@@ -98,8 +100,16 @@ router.beforeEach(async (to) => {
   }
 
   if (to.path === '/auth' && userStore.isAuthenticated) {
-    const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : '/overview'
+    const redirect = userStore.isMigrationPending
+      ? '/center'
+      : typeof to.query.redirect === 'string'
+        ? to.query.redirect
+        : '/overview'
     return redirect
+  }
+
+  if (userStore.isAuthenticated && userStore.isMigrationPending && !to.meta.allowMigration) {
+    return '/center'
   }
 
   return true

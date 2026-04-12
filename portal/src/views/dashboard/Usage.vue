@@ -13,6 +13,11 @@ const errorText = ref('')
 
 const summaryCards = computed(() => [
   {
+    title: '当前身份',
+    value: userStore.profile?.name || t('common.noData'),
+    detail: userStore.profile?.userUuid || t('common.noData'),
+  },
+  {
     title: t('usage.summaryRequests'),
     value: formatNumber(userStore.usage?.daily_success_count ?? 0),
     detail: `${t('usage.summaryTotal')}: ${formatNumber(userStore.usage?.daily_total_count ?? 0)}`,
@@ -26,6 +31,11 @@ const summaryCards = computed(() => [
     title: t('usage.summaryAddonUsed'),
     value: formatNumber(userStore.usage?.addon_resource_used ?? 0),
     detail: `${t('usage.summaryAddonBalance')}: ${formatNumber(userStore.usage?.addon_resource_balance ?? 0)}`,
+  },
+  {
+    title: '旧账号来源',
+    value: userStore.profile?.legacyUsername || '未绑定',
+    detail: userStore.profile?.legacyUsername ? '仅用于迁移说明，不作为主登录标识。' : '当前账户没有绑定旧账号。',
   },
   {
     title: t('usage.summaryExpiration'),
@@ -63,6 +73,10 @@ async function queryUsage() {
         <p class="hero-tag">{{ t('usage.heroTag') }}</p>
         <h2>{{ t('usage.heroTitle') }}</h2>
         <p>{{ t('usage.heroBody') }}</p>
+        <div class="identity-inline">
+          <span>{{ userStore.profile?.name || '未登录' }}</span>
+          <code v-if="userStore.profile?.shortUserUuid">{{ userStore.profile.shortUserUuid }}</code>
+        </div>
       </div>
     </section>
 
@@ -156,6 +170,26 @@ async function queryUsage() {
   line-height: 1.8;
 }
 
+.identity-inline {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.identity-inline span {
+  color: var(--text-main);
+  font-weight: 700;
+}
+
+.identity-inline code {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--primary);
+}
+
 .filters {
   display: flex;
   justify-content: space-between;
@@ -189,7 +223,7 @@ async function queryUsage() {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 24px;
 }
 

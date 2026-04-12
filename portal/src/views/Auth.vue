@@ -1,52 +1,74 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import LocaleSwitcher from '../components/LocaleSwitcher.vue'
 import { useI18n } from '../i18n'
 import { useUserStore } from '../stores/user'
 
-type Mode = 'login' | 'register'
+type EmailMode = 'login' | 'register'
+type EntryMode = 'email' | 'device' | 'legacy'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const { t } = useI18n()
 
-const authMode = ref<Mode>('login')
+const emailMode = ref<EmailMode>('login')
+const entryMode = ref<EntryMode>('email')
 const registerChallengeToken = ref('')
 const registerChallengeExpiresIn = ref(0)
 const challengeLoading = ref(false)
 const challengeMessage = ref('')
+const deviceCode = ref('')
+const legacyMessage = ref('')
 
-const form = ref({
-  displayName: '',
+const emailForm = ref({
   email: '',
   password: '',
   verificationCode: '',
 })
 
-const title = computed(() =>
-  authMode.value === 'register' ? t('auth.titleRegister') : t('auth.titleLogin'),
-)
-
-const submitLabel = computed(() =>
-  authMode.value === 'register' ? t('auth.submitRegister') : t('auth.submitLogin'),
-)
+const legacyForm = ref({
+  legacyUsername: '',
+  legacyPassword: '',
+})
 
 const redirectTarget = computed(() => {
   const redirect = route.query.redirect
   return typeof redirect === 'string' ? redirect : '/overview'
 })
 
+const noticeMessage = computed(() => {
+  const notice = route.query.notice
+  if (notice === 'password-reset') {
+    return '密码已重置，请使用新密码登录。'
+  }
+  return ''
+})
+
+const emailTitle = computed(() =>
+  emailMode.value === 'register' ? '邮箱注册' : '邮箱登录',
+)
+
+watch(
+  () => route.query.tab,
+  (nextTab) => {
+    if (nextTab === 'device' || nextTab === 'legacy' || nextTab === 'email') {
+      entryMode.value = nextTab
+    }
+  },
+  { immediate: true },
+)
+
 async function sendRegisterCode() {
-  if (!form.value.email.trim() || challengeLoading.value) {
+  if (!emailForm.value.email.trim() || challengeLoading.value) {
     return
   }
 
   challengeLoading.value = true
   challengeMessage.value = ''
   try {
-    const response = await userStore.sendRegisterCode(form.value.email.trim())
+    const response = await userStore.sendRegisterCode(emailForm.value.email.trim())
     registerChallengeToken.value = response.verification_token
     registerChallengeExpiresIn.value = response.expires_in
     challengeMessage.value = '验证码已发送，请检查邮箱。'
@@ -57,32 +79,61 @@ async function sendRegisterCode() {
   }
 }
 
-async function handleSubmit() {
+async function handleEmailSubmit() {
   if (userStore.loading) {
     return
   }
 
   try {
-    if (authMode.value === 'register') {
+    if (emailMode.value === 'register') {
       if (!registerChallengeToken.value) {
         challengeMessage.value = '请先发送注册验证码。'
         return
       }
+
       await userStore.register(
-        form.value.email.trim(),
-        form.value.password,
-        form.value.displayName.trim() || form.value.email.split('@')[0] || 'VoiceLinkVR User',
+        emailForm.value.email.trim(),
+        emailForm.value.password,
         registerChallengeToken.value,
-        form.value.verificationCode.trim(),
+        emailForm.value.verificationCode.trim(),
       )
     } else {
-      await userStore.login(form.value.email.trim(), form.value.password)
+      await userStore.login(emailForm.value.email.trim(), emailForm.value.password)
     }
   } catch {
     return
   }
 
   router.push(redirectTarget.value)
+}
+
+async function handleLegacySubmit() {
+  if (userStore.loading) {
+    return
+  }
+
+  legacyMessage.value = ''
+
+  try {
+    await userStore.legacyLogin(
+      legacyForm.value.legacyUsername.trim(),
+      legacyForm.value.legacyPassword,
+    )
+    await userStore.bootstrap(true)
+
+    legacyMessage.value = '旧账号验证成功，请继续完成邮箱绑定和验证。'
+
+    if (userStore.isAuthenticated) {
+      router.push('/center')
+    }
+  } catch (error) {
+    legacyMessage.value = error instanceof Error ? error.message : '旧账号迁移登录失败。'
+  }
+}
+
+function openAuthorizePage() {
+  const query = deviceCode.value.trim() ? { user_code: deviceCode.value.trim().toUpperCase() } : undefined
+  router.push({ path: '/authorize', query })
 }
 </script>
 
@@ -106,12 +157,16 @@ async function handleSubmit() {
 
         <div class="aside-points">
           <div class="aside-card glass-panel">
-            <strong>{{ t('auth.sessionTitle') }}</strong>
-            <span>{{ t('auth.sessionBody') }}</span>
+            <strong>v2 主登录</strong>
+            <span>新控制台默认使用邮箱密码登录，注册时不再要求昵称或用户名。</span>
           </div>
           <div class="aside-card glass-panel">
-            <strong>{{ t('auth.billingTitle') }}</strong>
-            <span>{{ t('auth.billingBody') }}</span>
+            <strong>旧账号迁移</strong>
+            <span>旧用户名和旧密码仅作为迁移入口，验证后需要立即绑定并验证邮箱。</span>
+          </div>
+          <div class="aside-card glass-panel">
+            <strong>控制台授权</strong>
+            <span>桌面客户端推荐使用设备授权登录，不再把测试账号当成真实登录身份。</span>
           </div>
         </div>
       </div>
@@ -119,83 +174,153 @@ async function handleSubmit() {
       <div class="auth-box">
         <div class="auth-head">
           <p class="auth-kicker">{{ t('brand.portal') }}</p>
-          <h2>{{ title }}</h2>
+          <h2>{{ entryMode === 'email' ? emailTitle : entryMode === 'device' ? '控制台授权登录' : '旧账号迁移' }}</h2>
+          <p v-if="noticeMessage" class="helper-copy success-copy">{{ noticeMessage }}</p>
         </div>
 
-        <div class="mode-switch">
-          <button type="button" :class="{ active: authMode === 'login' }" @click="authMode = 'login'">
-            {{ t('auth.loginMode') }}
+        <div class="entry-switch">
+          <button type="button" :class="{ active: entryMode === 'email' }" @click="entryMode = 'email'">
+            邮箱登录
           </button>
-          <button type="button" :class="{ active: authMode === 'register' }" @click="authMode = 'register'">
-            {{ t('auth.registerMode') }}
+          <button type="button" :class="{ active: entryMode === 'device' }" @click="entryMode = 'device'">
+            控制台授权
+          </button>
+          <button type="button" :class="{ active: entryMode === 'legacy' }" @click="entryMode = 'legacy'">
+            旧账号迁移
           </button>
         </div>
 
-        <form class="form-area" @submit.prevent="handleSubmit">
-          <label v-if="authMode === 'register'" class="input-group">
-            <span>{{ t('common.displayName') }}</span>
-            <input
-              v-model="form.displayName"
-              type="text"
-              class="input-field"
-              :placeholder="t('auth.displayNamePlaceholder')"
-              maxlength="100"
-            />
-          </label>
+        <template v-if="entryMode === 'email'">
+          <div class="mode-switch">
+            <button type="button" :class="{ active: emailMode === 'login' }" @click="emailMode = 'login'">
+              {{ t('auth.loginMode') }}
+            </button>
+            <button type="button" :class="{ active: emailMode === 'register' }" @click="emailMode = 'register'">
+              {{ t('auth.registerMode') }}
+            </button>
+          </div>
 
-          <label class="input-group">
-            <span>{{ t('common.email') }}</span>
-            <input
-              v-model="form.email"
-              type="email"
-              class="input-field"
-              :placeholder="t('auth.emailPlaceholder')"
-              required
-            />
-          </label>
-
-          <label class="input-group">
-            <span>{{ t('common.password') }}</span>
-            <input
-              v-model="form.password"
-              type="password"
-              class="input-field"
-              :placeholder="t('auth.passwordPlaceholder')"
-              minlength="6"
-              required
-            />
-          </label>
-
-          <template v-if="authMode === 'register'">
+          <form class="form-area" @submit.prevent="handleEmailSubmit">
             <label class="input-group">
-              <span>邮箱验证码</span>
-              <div class="inline-row">
-                <input
-                  v-model="form.verificationCode"
-                  type="text"
-                  class="input-field"
-                  placeholder="输入邮箱中的验证码"
-                  minlength="4"
-                  maxlength="16"
-                  required
-                />
-                <button class="btn btn-outline" type="button" :disabled="challengeLoading" @click="sendRegisterCode">
-                  {{ challengeLoading ? '发送中...' : '发送验证码' }}
-                </button>
-              </div>
+              <span>{{ t('common.email') }}</span>
+              <input
+                v-model="emailForm.email"
+                type="email"
+                class="input-field"
+                :placeholder="t('auth.emailPlaceholder')"
+                required
+              />
             </label>
-            <p v-if="challengeMessage" class="helper-copy">{{ challengeMessage }}</p>
-            <p v-if="registerChallengeExpiresIn" class="helper-copy">验证码有效期 {{ Math.floor(registerChallengeExpiresIn / 60) }} 分钟。</p>
-          </template>
 
-          <p v-if="userStore.authError" class="error-copy">{{ userStore.authError }}</p>
+            <label class="input-group">
+              <span>{{ t('common.password') }}</span>
+              <input
+                v-model="emailForm.password"
+                type="password"
+                class="input-field"
+                :placeholder="t('auth.passwordPlaceholder')"
+                minlength="6"
+                required
+              />
+            </label>
 
-          <button type="submit" class="btn btn-primary w-full" :disabled="userStore.loading">
-            {{ userStore.loading ? t('auth.submitting') : submitLabel }}
-          </button>
-        </form>
+            <template v-if="emailMode === 'register'">
+              <label class="input-group">
+                <span>邮箱验证码</span>
+                <div class="inline-row">
+                  <input
+                    v-model="emailForm.verificationCode"
+                    type="text"
+                    class="input-field"
+                    placeholder="输入邮箱中的验证码"
+                    minlength="4"
+                    maxlength="16"
+                    required
+                  />
+                  <button class="btn btn-outline" type="button" :disabled="challengeLoading" @click="sendRegisterCode">
+                    {{ challengeLoading ? '发送中...' : '发送验证码' }}
+                  </button>
+                </div>
+              </label>
+              <p v-if="challengeMessage" class="helper-copy">{{ challengeMessage }}</p>
+              <p v-if="registerChallengeExpiresIn" class="helper-copy">
+                验证码有效期 {{ Math.floor(registerChallengeExpiresIn / 60) }} 分钟。
+              </p>
+            </template>
 
-        <router-link to="/reset-password" class="back-home">忘记密码？</router-link>
+            <p v-if="userStore.authError" class="error-copy">{{ userStore.authError }}</p>
+
+            <button type="submit" class="btn btn-primary w-full" :disabled="userStore.loading">
+              {{ userStore.loading ? t('auth.submitting') : emailMode === 'register' ? '注册并进入控制台' : '登录控制台' }}
+            </button>
+          </form>
+
+          <router-link to="/reset-password" class="back-home">忘记密码？</router-link>
+        </template>
+
+        <template v-else-if="entryMode === 'device'">
+          <div class="entry-panel">
+            <p class="panel-copy">
+              客户端发起设备授权后，会显示一个授权码。你可以在这里输入授权码并进入确认页，也可以直接打开授权页后再粘贴。
+            </p>
+
+            <label class="input-group">
+              <span>授权码</span>
+              <input
+                v-model="deviceCode"
+                type="text"
+                class="input-field"
+                placeholder="例如 ABCD-EFGH"
+                autocomplete="off"
+              />
+            </label>
+
+            <button type="button" class="btn btn-primary w-full" @click="openAuthorizePage">
+              打开控制台授权页
+            </button>
+          </div>
+        </template>
+
+        <template v-else>
+          <form class="form-area" @submit.prevent="handleLegacySubmit">
+            <p class="panel-copy">
+              这里只用于旧账号升级，不是长期主登录方式。验证通过后，你需要立即绑定邮箱并完成邮箱验证。
+            </p>
+
+            <label class="input-group">
+              <span>旧用户名</span>
+              <input
+                v-model="legacyForm.legacyUsername"
+                type="text"
+                class="input-field"
+                placeholder="输入旧系统用户名"
+                autocomplete="username"
+                required
+              />
+            </label>
+
+            <label class="input-group">
+              <span>旧密码</span>
+              <input
+                v-model="legacyForm.legacyPassword"
+                type="password"
+                class="input-field"
+                placeholder="输入旧系统密码"
+                autocomplete="current-password"
+                required
+              />
+            </label>
+
+            <p v-if="legacyMessage" class="helper-copy" :class="{ 'error-copy': !userStore.isMigrationPending, 'success-copy': userStore.isMigrationPending }">
+              {{ legacyMessage }}
+            </p>
+
+            <button type="submit" class="btn btn-primary w-full" :disabled="userStore.loading">
+              {{ userStore.loading ? '验证中...' : '验证旧账号并开始迁移' }}
+            </button>
+          </form>
+        </template>
+
         <router-link to="/" class="back-home">{{ t('common.backHome') }}</router-link>
       </div>
     </section>
@@ -297,7 +422,8 @@ async function handleSubmit() {
   margin-bottom: 8px;
 }
 
-.aside-card span {
+.aside-card span,
+.panel-copy {
   color: var(--text-muted);
   line-height: 1.8;
 }
@@ -311,10 +437,10 @@ async function handleSubmit() {
   font-size: 2rem;
 }
 
+.entry-switch,
 .mode-switch {
   margin: 28px 0 24px;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
   padding: 6px;
   border-radius: 18px;
@@ -322,6 +448,15 @@ async function handleSubmit() {
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.entry-switch {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.mode-switch {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.entry-switch button,
 .mode-switch button {
   min-height: 46px;
   border: 0;
@@ -335,13 +470,15 @@ async function handleSubmit() {
     transform 0.22s ease;
 }
 
+.entry-switch button.active,
 .mode-switch button.active {
   color: var(--text-main);
   background: rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-.form-area {
+.form-area,
+.entry-panel {
   margin-top: 8px;
 }
 
@@ -368,8 +505,11 @@ async function handleSubmit() {
 }
 
 .error-copy {
-  margin-bottom: 16px;
   color: #ffb4b4;
+}
+
+.success-copy {
+  color: #9af0c8;
 }
 
 .back-home {
@@ -394,7 +534,8 @@ async function handleSubmit() {
     flex-direction: column;
   }
 
-  .inline-row {
+  .inline-row,
+  .entry-switch {
     grid-template-columns: 1fr;
   }
 }

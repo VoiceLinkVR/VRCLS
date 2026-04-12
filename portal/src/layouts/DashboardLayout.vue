@@ -19,12 +19,11 @@ const mobileMenuOpen = ref(false)
 const { t } = useI18n()
 
 const menuItems = computed<MenuItem[]>(() => [
+  { to: '/center', label: '用户中心', icon: 'UC' },
   { to: '/overview', label: t('nav.overview'), icon: 'OV' },
   { to: '/billing', label: t('nav.billing'), icon: 'BI' },
   { to: '/orders', label: t('nav.orders'), icon: 'OR' },
   { to: '/usage', label: t('nav.usage'), icon: 'US' },
-  { to: '/security', label: '账户安全', icon: 'SE' },
-  { to: '/email', label: '邮箱设置', icon: 'EM' },
 ])
 
 const currentTitle = computed(() => {
@@ -36,6 +35,7 @@ const currentTitle = computed(() => {
   }
   return t('route.overview')
 })
+
 const currentPlanLabel = computed(() =>
   `${t('common.currentPlan')}: ${formatPlanLabel(userStore.currentPlanPrice)}`,
 )
@@ -76,6 +76,7 @@ async function logout() {
         <span class="status-chip">{{ t('nav.live') }}</span>
         <strong>{{ userStore.profile?.name }}</strong>
         <p>{{ userStore.profile?.email }}</p>
+        <small v-if="userStore.profile?.shortUserUuid">user_uuid: {{ userStore.profile.shortUserUuid }}</small>
       </div>
 
       <LocaleSwitcher />
@@ -128,13 +129,22 @@ async function logout() {
       </header>
 
       <section class="page-container">
+        <div v-if="userStore.isMigrationPending" class="email-banner migration-banner glass-panel">
+          <div>
+            <strong>账户仍处于迁移流程中</strong>
+            <p>请先完成邮箱绑定或旧账号归并，完整的计费与安全能力会在迁移完成后开放。</p>
+          </div>
+          <router-link to="/center" class="btn btn-primary">前往用户中心</router-link>
+        </div>
+
         <div v-if="needsEmailBinding" class="email-banner glass-panel">
           <div>
             <strong>请先完成邮箱绑定</strong>
-            <p>旧账号如果没有绑定并验证邮箱，将无法使用验证码注册协同、找回密码和邮箱验证码改密。</p>
+            <p>未验证邮箱的账户无法使用验证码改密、找回密码和完整的控制台账户能力。</p>
           </div>
-          <router-link to="/email" class="btn btn-primary">去绑定邮箱</router-link>
+          <router-link to="/center" class="btn btn-primary">前往用户中心</router-link>
         </div>
+
         <RouterView />
       </section>
     </main>
@@ -212,6 +222,13 @@ async function logout() {
 .status-card p {
   color: var(--text-muted);
   font-size: 0.92rem;
+}
+
+.status-card small {
+  display: block;
+  margin-top: 8px;
+  color: var(--text-soft);
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
 }
 
 .status-chip {
@@ -381,6 +398,10 @@ async function logout() {
   align-items: center;
   gap: 16px;
   border-color: rgba(255, 196, 91, 0.28);
+}
+
+.migration-banner {
+  border-color: rgba(0, 229, 255, 0.24);
 }
 
 .email-banner p {

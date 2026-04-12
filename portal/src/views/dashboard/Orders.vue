@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { formatCurrency, formatDateTime, useI18n } from '../../i18n'
+import { computed, ref } from 'vue'
+import { formatCurrency, formatDateTime, translateApiError, useI18n } from '../../i18n'
 import { useUserStore } from '../../stores/user'
 import { translateActionLabel, translateOrderStatus } from '../../utils/portal'
 
 const userStore = useUserStore()
 const { t } = useI18n()
+const cancelOrderId = ref('')
+const cancelError = ref('')
 
 const statusClassMap = computed(() => ({
   paid: 'paid',
@@ -13,6 +15,21 @@ const statusClassMap = computed(() => ({
   expired: 'expired',
   cancelled: 'expired',
 }))
+
+async function cancelOrder(orderId: string) {
+  cancelOrderId.value = orderId
+  cancelError.value = ''
+  try {
+    await userStore.cancelOrder(orderId)
+  } catch (error) {
+    cancelError.value =
+      error instanceof Error
+        ? translateApiError({ message: error.message }, 'errors.generic')
+        : t('errors.generic')
+  } finally {
+    cancelOrderId.value = ''
+  }
+}
 </script>
 
 <template>
@@ -36,6 +53,8 @@ const statusClassMap = computed(() => ({
           <p>{{ t('orders.count', { count: userStore.orders.length }) }}</p>
         </div>
       </div>
+
+      <div v-if="cancelError" class="cancel-error">{{ cancelError }}</div>
 
       <div v-if="userStore.orders.length === 0" class="empty-state">{{ t('orders.empty') }}</div>
 
@@ -65,14 +84,25 @@ const statusClassMap = computed(() => ({
                 </span>
               </td>
               <td>
-                <button
-                  v-if="order.payUrl"
-                  type="button"
-                  class="btn btn-outline mini-btn"
-                  @click="userStore.openPaymentUrl(order.payUrl)"
-                >
-                  {{ t('orders.continuePay') }}
-                </button>
+                <div v-if="order.payUrl || order.cancellable" class="order-actions">
+                  <button
+                    v-if="order.payUrl"
+                    type="button"
+                    class="btn btn-outline mini-btn"
+                    @click="userStore.openPaymentUrl(order.payUrl)"
+                  >
+                    {{ t('orders.continuePay') }}
+                  </button>
+                  <button
+                    v-if="order.cancellable"
+                    type="button"
+                    class="btn btn-outline mini-btn danger-btn"
+                    :disabled="cancelOrderId === order.id"
+                    @click="cancelOrder(order.id)"
+                  >
+                    {{ cancelOrderId === order.id ? t('common.loading') : t('common.cancel') }}
+                  </button>
+                </div>
                 <span v-else>-</span>
               </td>
             </tr>
@@ -121,6 +151,11 @@ const statusClassMap = computed(() => ({
 .table-head p {
   color: var(--text-muted);
   margin-top: 6px;
+}
+
+.cancel-error {
+  margin-bottom: 14px;
+  color: #ffb4b4;
 }
 
 .empty-state {
@@ -194,10 +229,24 @@ const statusClassMap = computed(() => ({
   padding: 0 14px;
 }
 
+.order-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.danger-btn {
+  border-color: rgba(255, 94, 94, 0.35);
+  color: #ffb4b4;
+}
+
 @media (max-width: 760px) {
   .orders-hero {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .order-actions {
+    flex-direction: column;
   }
 }
 </style>

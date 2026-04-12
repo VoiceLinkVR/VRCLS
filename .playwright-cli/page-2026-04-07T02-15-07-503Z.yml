@@ -1,0 +1,102 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - link "VoiceLinkVR 首页" [ref=e4] [cursor=pointer]:
+      - /url: "#top"
+      - generic [ref=e5]: V
+      - generic [ref=e6]:
+        - strong [ref=e7]: VoiceLinkVR
+        - generic [ref=e8]: VRChat Translation Engine
+    - navigation [ref=e9]:
+      - link "特性介绍" [ref=e10] [cursor=pointer]:
+        - /url: "#features"
+      - link "适用场景" [ref=e11] [cursor=pointer]:
+        - /url: "#scenarios"
+      - link "系统状态" [ref=e12] [cursor=pointer]:
+        - /url: status/
+      - link "控制台" [ref=e13] [cursor=pointer]:
+        - /url: app/
+      - link "免费下载" [ref=e14] [cursor=pointer]:
+        - /url: https://github.com/VoiceLinkVR/VRCLS
+  - main [ref=e15]:
+    - generic [ref=e16]:
+      - generic [ref=e17]:
+        - paragraph [ref=e18]: The Next-Gen VRChat Translation Engine
+        - heading "打破虚拟世界的语言边界" [level=1] [ref=e19]
+        - paragraph [ref=e20]: VRCLS 是一款专为 VRChat 打造的低延迟实时语音识别与同声传译系统。无缝集成原生 OSC， 将多语种字幕直接投射至虚拟现实，让全球交友毫无障碍。
+        - generic [ref=e21]:
+          - link "进入控制台" [ref=e22] [cursor=pointer]:
+            - /url: app/
+          - link "下载客户端" [ref=e23] [cursor=pointer]:
+            - /url: https://github.com/VoiceLinkVR/VRCLS
+        - generic [ref=e24]:
+          - article [ref=e25]:
+            - strong [ref=e26]: 毫秒级
+            - text: 低延迟流式识别与翻译链路
+          - article [ref=e27]:
+            - strong [ref=e28]: 20+
+            - text: 支持全球主流语种双向互译
+          - article [ref=e29]:
+            - strong [ref=e30]: Native OSC
+            - text: 字幕与 Avatar 状态原生投射
+      - generic [ref=e36]:
+        - paragraph [ref=e37]:
+          - generic [ref=e38]: "[Link]"
+          - text: Establishing encrypted cloud relay...
+        - paragraph [ref=e39]:
+          - generic [ref=e40]: "[Voice]"
+          - text: Streaming microphone frames into VAD pipeline.
+        - paragraph [ref=e41]:
+          - generic [ref=e42]: "[ASR-ZH]"
+          - text: 很高兴在 VRChat 认识你。
+        - paragraph [ref=e43]:
+          - generic [ref=e44]: "[TR-EN]"
+          - text: Great to meet you here in VRChat.
+        - paragraph [ref=e45]:
+          - generic [ref=e46]: "[OSC]"
+          - text: Broadcasting subtitle payload to Chatbox and Avatar.
+        - paragraph [ref=e47]:
+          - generic [ref=e48]: "[Sync]"
+          - text: VoiceLinkVR control plane synchronized.
+    - generic [ref=e49]:
+      - generic [ref=e50]:
+        - paragraph [ref=e51]: Features
+        - heading "专为全球 VRChat 玩家打造的实时翻译底座" [level=2] [ref=e52]
+        - paragraph [ref=e53]: 从拾音、识别、翻译到沉浸式字幕投射，整条链路围绕多人语音社交场景重做，兼顾速度、稳定性与临场感。
+      - generic [ref=e54]:
+        - article [ref=e55]:
+          - heading "流式极速识别" [level=3] [ref=e56]
+          - paragraph [ref=e57]: 搭载专为语音聊天优化的 VAD 检测引擎，开口即识别，告别尴尬的等待时间。
+        - article [ref=e58]:
+          - heading "全球同声传译" [level=3] [ref=e59]
+          - paragraph [ref=e60]: 依托云端 AI 算力，支持中英日韩等数十种语言双向互译，让你在 Public 房间畅所欲言。
+        - article [ref=e61]:
+          - heading "原生沉浸展现" [level=3] [ref=e62]
+          - paragraph [ref=e63]: 直接对接 VRChat Chatbox 与 Avatar 参数，字幕悬浮于身畔，提供更自然的交流体验。
+        - article [ref=e64]:
+          - heading "多端云同步" [level=3] [ref=e65]
+          - paragraph [ref=e66]: 客户端配置与额度数据云端互通，登录控制台即可随时随地管理翻译配置与账号资源。
+    - generic [ref=e67]:
+      - generic [ref=e68]:
+        - paragraph [ref=e69]: Scenarios
+        - heading "让每一种虚拟社交身份都拥有跨语言交流能力" [level=2] [ref=e70]
+      - generic [ref=e71]:
+        - article [ref=e72]:
+          - heading "跨国社交开拓者" [level=3] [ref=e73]
+          - paragraph [ref=e74]: 在多语言 Public 房间里保持自然对话节奏，快速建立跨文化连接，让陌生房间更容易开口交流。
+        - article [ref=e75]:
+          - heading "VTuber 与内容创作者" [level=3] [ref=e76]
+          - paragraph [ref=e77]: 为直播、录播与联动内容提供实时字幕和双语表达，让内容传播跨越地区限制，扩大观众覆盖面。
+        - article [ref=e78]:
+          - heading "无障碍交流守护者" [level=3] [ref=e79]
+          - paragraph [ref=e80]: 通过清晰稳定的字幕辅助听障沟通、深夜静音交流与嘈杂环境下的表达补偿，让对话更平等、更可达。
+  - contentinfo [ref=e81]:
+    - generic [ref=e82]:
+      - strong [ref=e83]: VoiceLinkVR
+      - paragraph [ref=e84]: 为 VRChat 提供稳定的实时语音识别、同声传译与原生 OSC 字幕投射能力。
+    - generic [ref=e85]:
+      - link "进入控制台" [ref=e86] [cursor=pointer]:
+        - /url: app/
+      - link "系统状态" [ref=e87] [cursor=pointer]:
+        - /url: status/
+      - link "下载客户端" [ref=e88] [cursor=pointer]:
+        - /url: https://github.com/VoiceLinkVR/VRCLS

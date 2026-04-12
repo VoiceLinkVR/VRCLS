@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { formatCurrency, formatNumber, translateApiError, useI18n } from '../../i18n'
-import { type PortalBillingAddonGuide, type PortalBillingGuideOption, useUserStore } from '../../stores/user'
+import { type PortalBillingGuideOption, useUserStore } from '../../stores/user'
 import { formatPlanLabel, translateActionLabel } from '../../utils/portal'
 
 const userStore = useUserStore()
 const { t } = useI18n()
+const PRICE_EPSILON = 0.0001
 
 const selectedAction = ref('renew')
 const selectedMonths = ref(1)
@@ -13,92 +14,178 @@ const selectedAmount = ref(0)
 const checkoutError = ref('')
 const checkoutStatus = ref('')
 const checkoutLoading = ref(false)
+const cancelOrderId = ref('')
+const cancelError = ref('')
 
 const monthOptions = Array.from({ length: 12 }, (_, index) => index + 1)
 
 const actionCards = computed(() => {
   const guide = userStore.billingGuide
-  const actions = ['renew', 'upgrade', 'downgrade', 'addon']
-  return actions.map((action) => {
-    const allowed = guide?.allowedActions.includes(action) ?? false
-    return {
+  if (guide?.subscriptionMode === 'ladder') {
+    return [
+      {
+        action: 'renew',
+        allowed: guide.allowedActions.some((action) => ['renew', 'upgrade'].includes(action)),
+        title: t('billing.actionLabelAdjust'),
+        body: t('billing.actionDescriptionAdjust'),
+      },
+      {
+        action: 'addon',
+        allowed: guide.allowedActions.includes('addon'),
+        title: translateActionLabel('addon'),
+        body: t('billing.actionDescriptionAddon'),
+      },
+    ]
+  }
+  const orderedActions = ['renew', 'upgrade', 'addon']
+  return orderedActions
+    .filter((action) => guide?.allowedActions.includes(action) || action === 'renew' || action === 'upgrade')
+    .map((action) => ({
       action,
-      allowed,
+      allowed: guide?.allowedActions.includes(action) ?? false,
       title: translateActionLabel(action),
       body: t(`billing.actionDescription${action[0].toUpperCase()}${action.slice(1)}`),
-    }
-  })
+    }))
 })
 
-const currentOption = computed(() => {
-  const guide = userStore.billingGuide
-  if (!guide) {
+const isAddonAction = computed(() => selectedAction.value === 'addon')
+
+function mergeLadderOptions(options: Array<PortalBillingGuideOption | null | undefined>): PortalBillingGuideOption | null {
+  const allowedOptions = options.filter((option): option is PortalBillingGuideOption => Boolean(option?.allowed))
+  if (allowedOptions.length === 0) {
     return null
   }
-  if (selectedAction.value === 'renew') {
-    return guide.renewOption
+  const minValues = allowedOptions
+    .map((option) => option.minMonthlyPrice ?? option.defaultMonthlyPrice)
+    .filter((value): value is number => typeof value === 'number')
+  const maxValues = allowedOptions
+    .map((option) => option.maxMonthlyPrice ?? option.defaultMonthlyPrice)
+    .filter((value): value is number => typeof value === 'number')
+  const mergedQuotaPreviewByPrice = Object.assign({}, ...allowedOptions.map((option) => option.quotaPreviewByPrice ?? {}))
+  const currentPrice = Number((userStore.currentPlanPrice || 0).toFixed(2))
+  const defaultMonthlyPrice =
+    currentPrice > 0
+      ? currentPrice
+      : (allowedOptions.find((option) => typeof option.defaultMonthlyPrice === 'number')?.defaultMonthlyPrice ?? null)
+
+  return {
+    allowed: true,
+    readonly: minValues.length === 0 || maxValues.length === 0 || Math.abs(Math.max(...maxValues) - Math.min(...minValues)) <= PRICE_EPSILON,
+    pricingMode: 'ladder',
+    defaultMonthlyPrice,
+    minMonthlyPrice: minValues.length > 0 ? Math.min(...minValues) : defaultMonthlyPrice,
+    maxMonthlyPrice: maxValues.length > 0 ? Math.max(...maxValues) : defaultMonthlyPrice,
+    step: allowedOptions.find((option) => typeof option.step === 'number')?.step ?? userStore.billingGuide?.priceStep ?? null,
+    targetResourceQuotaPreview:
+      defaultMonthlyPrice !== null && defaultMonthlyPrice !== undefined
+        ? mergedQuotaPreviewByPrice[defaultMonthlyPrice.toFixed(2)] ?? null
+        : null,
+    priceOptions: [],
+    quotaPreviewByPrice: mergedQuotaPreviewByPrice,
   }
-  if (selectedAction.value === 'upgrade') {
-    return guide.upgradeOption
+}
+
+const currentOption = computed<PortalBillingGuideOption | null>(() => {
+  const guide = userStore.billingGuide
+  if (!guide || isAddonAction.value) {
+    return null
   }
-  if (selectedAction.value === 'downgrade') {
-    return guide.downgradeOption
+  if (guide.subscriptionMode === 'ladder') {
+    return mergeLadderOptions([guide.renewOption, guide.upgradeOption])
   }
-  if (selectedAction.value === 'addon') {
-    return guide.addonOption
-  }
-  return null
+  return selectedAction.value === 'upgrade' ? guide.upgradeOption : guide.renewOption
 })
 
-const isAddon = computed(() => selectedAction.value === 'addon')
+const currentPricingMode = computed(() => currentOption.value?.pricingMode || userStore.billingGuide?.subscriptionMode || 'fixed_tiers')
 
-const currentStep = computed(() => {
+const usesPriceStepper = computed(() => !isAddonAction.value && currentPricingMode.value === 'ladder')
+
+const priceOptions = computed(() => {
+  const option = currentOption.value
+  if (!option) {
+    return []
+  }
+  if (option.priceOptions.length > 0) {
+    return option.priceOptions
+  }
+  if (option.defaultMonthlyPrice !== null && option.defaultMonthlyPrice !== undefined) {
+    return [option.defaultMonthlyPrice]
+  }
+  return []
+})
+
+const addonOption = computed(() => userStore.billingGuide?.addonOption ?? null)
+
+const selectedAmountKey = computed(() => selectedAmount.value.toFixed(2))
+
+const quotaPreviewValue = computed(() => {
+  if (isAddonAction.value) {
+    const option = addonOption.value
+    if (!option) {
+      return 0
+    }
+    const step = option.step ?? 5
+    const increment = option.resourceIncrement ?? option.defaultResourceQuotaPreview ?? 0
+    const units = Math.max(1, Math.floor(selectedAmount.value / step))
+    return units * increment
+  }
+
   const option = currentOption.value
   if (!option) {
     return 0
   }
-  return option.step ?? 0
+  return (
+    option.quotaPreviewByPrice[selectedAmountKey.value] ??
+    option.targetResourceQuotaPreview ??
+    userStore.billingGuide?.displayResourceQuota ??
+    0
+  )
 })
 
-const canAdjustAmount = computed(() => {
-  const option = currentOption.value
-  return Boolean(option && !option.readonly && (option.step ?? 0) > 0)
+const checkoutAction = computed(() => {
+  if (isAddonAction.value) {
+    return 'addon'
+  }
+  if (currentPricingMode.value !== 'ladder') {
+    return selectedAction.value
+  }
+  const currentPrice = Number((userStore.currentPlanPrice || 0).toFixed(2))
+  if (selectedAmount.value > currentPrice + PRICE_EPSILON) {
+    return 'upgrade'
+  }
+  return 'renew'
 })
 
 const totalAmount = computed(() => {
-  if (isAddon.value) {
+  if (isAddonAction.value) {
     return selectedAmount.value
   }
-  if (selectedAction.value === 'upgrade') {
+  if (checkoutAction.value === 'upgrade') {
     return Math.max(selectedAmount.value - userStore.currentPlanPrice, 0) * selectedMonths.value
   }
   return selectedAmount.value * selectedMonths.value
 })
 
-const quotaPreviewValue = computed(() => {
-  const guide = userStore.billingGuide
-  const option = currentOption.value
-  if (!guide || !option) {
-    return 0
+const amountHint = computed(() => {
+  if (isAddonAction.value || usesPriceStepper.value) {
+    return t('billing.warningBody')
   }
-  if (isAddon.value) {
-    const step = option.step ?? 0
-    const increment = 'resourceIncrement' in option ? option.resourceIncrement ?? 0 : 0
-    if (step <= 0) {
-      return 0
-    }
-    return Math.max(Math.floor(selectedAmount.value / step), 0) * increment
-  }
-  const step = option.step ?? guide.priceStep
-  if (step <= 0) {
-    return 0
-  }
-  return Math.max(Math.floor(selectedAmount.value / step), 1) * guide.resourceIncrementPerStep
+  return t('billing.amountLockedHint')
 })
 
-const quotaPreviewText = computed(() =>
-  isAddon.value ? `+${formatNumber(quotaPreviewValue.value)}` : `${formatNumber(quotaPreviewValue.value)}/day`,
-)
+const guideSummary = computed(() => {
+  const guide = userStore.billingGuide
+  if (!guide) {
+    return t('common.noData')
+  }
+  if (guide.subscriptionMode === 'ladder') {
+    return t('billing.ruleSummary', {
+      priceStep: formatNumber(guide.priceStep ?? 0),
+      resourceStep: formatNumber(guide.resourceIncrementPerStep ?? 0),
+    })
+  }
+  return t('billing.amountLockedHint')
+})
 
 const previewCards = computed(() => [
   {
@@ -114,53 +201,40 @@ const previewCards = computed(() => [
   {
     title: t('common.totalAmount'),
     value: formatCurrency(totalAmount.value),
-    detail: isAddon.value ? t('common.addon') : `${selectedMonths.value} ${t('common.month')}`,
+    detail: isAddonAction.value ? t('common.addon') : `${translateActionLabel(checkoutAction.value)} / ${selectedMonths.value} ${t('common.month')}`,
   },
   {
-    title: t('billing.expectedQuota'),
-    value: quotaPreviewText.value,
-    detail:
-      selectedAction.value === 'addon'
-        ? t('billing.addonBalance')
-        : t('billing.expectedResourceAfter', { quota: formatNumber(quotaPreviewValue.value) }),
+    title: isAddonAction.value ? t('billing.addonBalance') : t('billing.expectedQuota'),
+    value: isAddonAction.value ? formatNumber(quotaPreviewValue.value) : `${formatNumber(quotaPreviewValue.value)}/day`,
+    detail: t('billing.expectedResourceAfter', { quota: formatNumber(quotaPreviewValue.value) }),
   },
 ])
 
-function asAddonOption() {
-  return currentOption.value as PortalBillingAddonGuide | null
+function resetStatus() {
+  checkoutError.value = ''
+  checkoutStatus.value = ''
 }
 
-function asSubscriptionOption() {
-  return currentOption.value as PortalBillingGuideOption | null
+function clampSubscriptionAmount(value: number, option: PortalBillingGuideOption): number {
+  const min = option.minMonthlyPrice ?? option.defaultMonthlyPrice ?? 0
+  const max = option.maxMonthlyPrice ?? min
+  const step = option.step ?? userStore.billingGuide?.priceStep ?? 5
+  const safeValue = Math.min(Math.max(value, min), max)
+  const snapped = min + Math.round((safeValue - min) / step) * step
+  return Number(Math.min(Math.max(snapped, min), max).toFixed(2))
 }
 
-function clampAmount(rawValue: number) {
-  const option = currentOption.value
+function clampAddonAmount(value: number): number {
+  const option = addonOption.value
   if (!option) {
     return 0
   }
-  const step = option.step ?? 1
-  const min = isAddon.value
-    ? ('minAmount' in option ? option.minAmount : null)
-    : ('minMonthlyPrice' in option ? option.minMonthlyPrice : null)
-  const max = isAddon.value
-    ? ('maxAmount' in option ? option.maxAmount : null)
-    : ('maxMonthlyPrice' in option ? option.maxMonthlyPrice : null)
-
-  let next = rawValue
-  if (min !== null && min !== undefined) {
-    next = Math.max(next, min)
-  }
-  if (max !== null && max !== undefined) {
-    next = Math.min(next, max)
-  }
-  if (step > 0) {
-    next = Math.floor(next / step) * step
-  }
-  if (min !== null && min !== undefined) {
-    next = Math.max(next, min)
-  }
-  return Number(next.toFixed(2))
+  const min = option.minAmount ?? option.defaultAmount ?? option.step ?? 5
+  const max = option.maxAmount ?? Number.POSITIVE_INFINITY
+  const step = option.step ?? 5
+  const safeValue = Math.min(Math.max(value, min), max)
+  const snapped = min + Math.round((safeValue - min) / step) * step
+  return Number(Math.min(Math.max(snapped, min), max).toFixed(2))
 }
 
 function applyActionDefaults() {
@@ -169,47 +243,78 @@ function applyActionDefaults() {
     return
   }
 
-  const allowedActions = guide.allowedActions
-  if (!allowedActions.includes(selectedAction.value)) {
-    selectedAction.value = allowedActions[0] || 'renew'
+  if (guide.subscriptionMode === 'ladder' && selectedAction.value !== 'addon') {
+    selectedAction.value = 'renew'
   }
 
-  const option = currentOption.value
-  if (!option) {
-    return
+  if (!guide.allowedActions.includes(selectedAction.value)) {
+    selectedAction.value = guide.allowedActions[0] || 'renew'
   }
 
   if (selectedAction.value === 'addon') {
     selectedMonths.value = 1
-    const addonOption = asAddonOption()
-    selectedAmount.value = clampAmount(
-      addonOption?.defaultAmount ?? addonOption?.minAmount ?? guide.addonOption.step ?? 0,
-    )
+    selectedAmount.value = clampAddonAmount(addonOption.value?.defaultAmount ?? addonOption.value?.minAmount ?? 0)
     return
   }
 
-  const subscriptionOption = asSubscriptionOption()
-  selectedAmount.value = clampAmount(
-    subscriptionOption?.defaultMonthlyPrice ??
-      subscriptionOption?.minMonthlyPrice ??
-      guide.displayMonthlyPrice ??
-      guide.priceStep,
-  )
-}
-
-function increaseAmount() {
-  if (!canAdjustAmount.value) {
+  const option = currentOption.value
+  const choices = priceOptions.value
+  if (!option) {
+    selectedAmount.value = 0
     return
   }
-  selectedAmount.value = clampAmount(selectedAmount.value + currentStep.value)
-}
 
-function decreaseAmount() {
-  if (!canAdjustAmount.value) {
+  if (usesPriceStepper.value) {
+    const defaultAmount = option.defaultMonthlyPrice ?? option.minMonthlyPrice ?? 0
+    selectedAmount.value = clampSubscriptionAmount(defaultAmount, option)
     return
   }
-  selectedAmount.value = clampAmount(selectedAmount.value - currentStep.value)
+
+  if (choices.length === 0) {
+    selectedAmount.value = 0
+    return
+  }
+
+  const defaultAmount = option.defaultMonthlyPrice ?? choices[0]
+  selectedAmount.value = choices.includes(defaultAmount) ? defaultAmount : choices[0]
 }
+
+function adjustAmount(direction: number) {
+  if (isAddonAction.value) {
+    const step = addonOption.value?.step ?? 5
+    selectedAmount.value = clampAddonAmount(selectedAmount.value + direction * step)
+    return
+  }
+
+  const option = currentOption.value
+  if (!option || !usesPriceStepper.value) {
+    return
+  }
+
+  const step = option.step ?? userStore.billingGuide?.priceStep ?? 5
+  selectedAmount.value = clampSubscriptionAmount(selectedAmount.value + direction * step, option)
+}
+
+const canDecreaseAmount = computed(() => {
+  if (isAddonAction.value) {
+    return selectedAmount.value > (addonOption.value?.minAmount ?? addonOption.value?.defaultAmount ?? 0)
+  }
+  const option = currentOption.value
+  return Boolean(option && usesPriceStepper.value && selectedAmount.value > (option.minMonthlyPrice ?? 0))
+})
+
+const canIncreaseAmount = computed(() => {
+  if (isAddonAction.value) {
+    const max = addonOption.value?.maxAmount
+    return max === null || max === undefined || selectedAmount.value < max
+  }
+  const option = currentOption.value
+  if (!option || !usesPriceStepper.value) {
+    return false
+  }
+  const max = option.maxMonthlyPrice
+  return max !== null && max !== undefined ? selectedAmount.value < max : false
+})
 
 watch(
   () => userStore.billingGuide,
@@ -220,31 +325,30 @@ watch(
 )
 
 watch(selectedAction, () => {
-  checkoutError.value = ''
-  checkoutStatus.value = ''
+  resetStatus()
   applyActionDefaults()
 })
 
 watch(selectedMonths, () => {
-  checkoutError.value = ''
-  checkoutStatus.value = ''
+  resetStatus()
 })
 
 async function createOrder() {
-  if (!userStore.billingGuide) {
+  const hasSubscriptionSelection = currentOption.value && currentOption.value.allowed && selectedAmount.value > 0
+  const hasAddonSelection = addonOption.value && addonOption.value.allowed && selectedAmount.value > 0
+  if ((!isAddonAction.value && !hasSubscriptionSelection) || (isAddonAction.value && !hasAddonSelection) || !userStore.billingGuide) {
     return
   }
 
   checkoutLoading.value = true
-  checkoutError.value = ''
-  checkoutStatus.value = ''
+  resetStatus()
 
   try {
     await userStore.beginCheckout({
-      action: selectedAction.value,
-      months: isAddon.value ? 1 : selectedMonths.value,
-      targetMonthlyPrice: isAddon.value ? undefined : selectedAmount.value,
-      addonAmount: isAddon.value ? selectedAmount.value : undefined,
+      action: checkoutAction.value,
+      months: isAddonAction.value ? 1 : selectedMonths.value,
+      targetMonthlyPrice: isAddonAction.value ? undefined : selectedAmount.value,
+      addonAmount: isAddonAction.value ? selectedAmount.value : undefined,
       guideToken: userStore.billingGuide.guideToken,
     })
     checkoutStatus.value = t('billing.opened')
@@ -255,6 +359,21 @@ async function createOrder() {
         : t('errors.generic')
   } finally {
     checkoutLoading.value = false
+  }
+}
+
+async function cancelOrder(orderId: string) {
+  cancelOrderId.value = orderId
+  cancelError.value = ''
+  try {
+    await userStore.cancelOrder(orderId)
+  } catch (error) {
+    cancelError.value =
+      error instanceof Error
+        ? translateApiError({ message: error.message }, 'errors.generic')
+        : t('errors.generic')
+  } finally {
+    cancelOrderId.value = ''
   }
 }
 </script>
@@ -290,14 +409,7 @@ async function createOrder() {
           </div>
           <div>
             <span>{{ t('common.quotaRule') }}</span>
-            <strong>
-              {{
-                t('billing.ruleSummary', {
-                  priceStep: formatNumber(userStore.billingGuide?.priceStep ?? 0),
-                  resourceStep: formatNumber(userStore.billingGuide?.resourceIncrementPerStep ?? 0),
-                })
-              }}
-            </strong>
+            <strong>{{ guideSummary }}</strong>
           </div>
         </div>
       </article>
@@ -306,7 +418,8 @@ async function createOrder() {
         <h3>{{ t('billing.warningTitle') }}</h3>
         <p class="guide-warning">{{ t('billing.warningBody') }}</p>
         <p class="guide-warning">{{ t('common.directPayHint') }}</p>
-        <p class="guide-hint" v-if="userStore.billingGuide?.anchorReason === 'unregistered'">
+        <p class="guide-warning">{{ t('billing.calendarMonthHint') }}</p>
+        <p class="guide-hint" v-if="userStore.billingGuide?.anchorReason !== 'current'">
           {{ t('billing.firstPurchaseHint') }}
         </p>
       </article>
@@ -338,7 +451,7 @@ async function createOrder() {
           <h3>{{ t('billing.priceTitle') }}</h3>
         </div>
 
-        <div v-if="!isAddon" class="field-group">
+        <div v-if="!isAddonAction" class="field-group">
           <span class="field-label">{{ t('billing.monthsLabel') }}</span>
           <div class="month-grid">
             <button
@@ -355,23 +468,45 @@ async function createOrder() {
         </div>
 
         <div class="field-group">
-          <span class="field-label">{{ t('billing.amountLabel') }}</span>
-          <div class="amount-box">
-            <button type="button" class="amount-btn" :disabled="!canAdjustAmount" @click="decreaseAmount">-</button>
-            <div class="amount-value">
-              <small>{{ t('common.amountPerMonth') }}</small>
-              <strong>{{ formatCurrency(selectedAmount) }}</strong>
+          <span class="field-label">{{ isAddonAction ? t('common.addon') : t('billing.amountLabel') }}</span>
+
+          <div v-if="usesPriceStepper || isAddonAction" class="stepper-box">
+            <div class="stepper-row">
+              <button type="button" class="stepper-btn" :disabled="!canDecreaseAmount" @click="adjustAmount(-1)">-</button>
+              <div class="stepper-value">
+                <strong>{{ formatCurrency(selectedAmount) }}</strong>
+                <small>
+                  {{
+                    isAddonAction ? formatNumber(quotaPreviewValue) : `${formatNumber(quotaPreviewValue)}/day`
+                  }}
+                </small>
+              </div>
+              <button type="button" class="stepper-btn" :disabled="!canIncreaseAmount" @click="adjustAmount(1)">+</button>
             </div>
-            <button type="button" class="amount-btn" :disabled="!canAdjustAmount" @click="increaseAmount">+</button>
+          </div>
+
+          <div v-else class="price-grid">
+            <button
+              v-for="price in priceOptions"
+              :key="price"
+              type="button"
+              class="price-chip"
+              :class="{ active: selectedAmount === price }"
+              @click="selectedAmount = price"
+            >
+              <strong>{{ formatCurrency(price) }}</strong>
+              <small>{{ formatNumber(currentOption?.quotaPreviewByPrice[price.toFixed(2)] ?? quotaPreviewValue) }}/day</small>
+            </button>
           </div>
         </div>
 
+        <p class="helper-line">{{ amountHint }}</p>
         <p class="helper-line">{{ t('billing.expectedResourceAfter', { quota: formatNumber(quotaPreviewValue) }) }}</p>
 
         <div class="action-footer">
           <p v-if="checkoutError" class="checkout-error">{{ checkoutError }}</p>
           <p v-else-if="checkoutStatus" class="checkout-status">{{ checkoutStatus }}</p>
-          <button type="button" class="btn btn-primary w-full" :disabled="checkoutLoading" @click="createOrder">
+          <button type="button" class="btn btn-primary w-full" :disabled="checkoutLoading || selectedAmount <= 0" @click="createOrder">
             {{ checkoutLoading ? t('billing.creating') : t('common.goPay') }}
           </button>
         </div>
@@ -394,8 +529,10 @@ async function createOrder() {
     <section class="pending-card glass-panel">
       <div class="section-head">
         <h3>{{ t('billing.pendingTitle') }}</h3>
-      <router-link to="/orders">{{ t('billing.goOrders') }}</router-link>
+        <router-link to="/orders">{{ t('billing.goOrders') }}</router-link>
       </div>
+
+      <div v-if="cancelError" class="checkout-error">{{ cancelError }}</div>
 
       <div v-if="userStore.pendingOrders.length === 0" class="pending-empty">
         {{ t('billing.pendingEmpty') }}
@@ -407,9 +544,20 @@ async function createOrder() {
             <strong>{{ translateActionLabel(order.action) }}</strong>
             <span>{{ formatCurrency(order.amount, order.currency) }}</span>
           </div>
-          <button type="button" class="btn btn-outline" @click="userStore.openPaymentUrl(order.payUrl)">
-            {{ t('common.continuePay') }}
-          </button>
+          <div class="pending-actions">
+            <button type="button" class="btn btn-outline" @click="userStore.openPaymentUrl(order.payUrl)">
+              {{ t('common.continuePay') }}
+            </button>
+            <button
+              v-if="order.cancellable"
+              type="button"
+              class="btn btn-outline danger-btn"
+              :disabled="cancelOrderId === order.id"
+              @click="cancelOrder(order.id)"
+            >
+              {{ cancelOrderId === order.id ? t('common.loading') : t('common.cancel') }}
+            </button>
+          </div>
         </div>
       </div>
     </section>
@@ -505,19 +653,20 @@ async function createOrder() {
 
 .guide-list span,
 .preview-item span,
-.field-label,
-.amount-value small {
+.field-label {
   display: block;
   margin-bottom: 8px;
   color: var(--text-muted);
 }
 
-.guide-warning {
+.guide-warning,
+.helper-line {
   color: var(--text-muted);
   line-height: 1.8;
 }
 
-.guide-warning + .guide-warning {
+.guide-warning + .guide-warning,
+.helper-line + .helper-line {
   margin-top: 10px;
 }
 
@@ -528,7 +677,7 @@ async function createOrder() {
 
 .action-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
 }
 
@@ -577,10 +726,12 @@ async function createOrder() {
   gap: 12px;
 }
 
-.month-chip {
+.month-chip,
+.price-chip,
+.stepper-btn {
   min-height: 42px;
   padding: 0 14px;
-  border-radius: 999px;
+  border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
   color: var(--text-soft);
@@ -593,47 +744,66 @@ async function createOrder() {
   border-color: transparent;
 }
 
-.amount-box {
+.price-grid {
   display: grid;
-  grid-template-columns: 58px 1fr 58px;
-  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.price-chip {
+  display: grid;
+  gap: 6px;
+  min-height: 84px;
+  padding: 16px;
+  text-align: left;
+}
+
+.price-chip strong {
+  font-size: 1.15rem;
+}
+
+.price-chip small,
+.stepper-value small {
+  color: var(--text-muted);
+}
+
+.price-chip.active {
+  border-color: var(--primary);
+  background: rgba(0, 229, 255, 0.1);
+}
+
+.stepper-box {
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.stepper-row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) 56px;
+  gap: 16px;
   align-items: center;
 }
 
-.amount-btn {
-  min-height: 68px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--text-main);
-  font-size: 1.5rem;
-  cursor: pointer;
+.stepper-btn {
+  font-size: 1.4rem;
+  font-weight: 700;
 }
 
-.amount-btn:disabled {
+.stepper-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.amount-value {
-  padding: 18px 20px;
-  border-radius: 22px;
-  background:
-    radial-gradient(circle at top, rgba(0, 229, 255, 0.08), transparent 50%),
-    rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+.stepper-value {
   text-align: center;
 }
 
-.amount-value strong {
-  font-size: clamp(2rem, 4vw, 3rem);
-  letter-spacing: -0.04em;
-}
-
-.helper-line {
-  margin-top: 18px;
-  color: var(--text-muted);
-  line-height: 1.8;
+.stepper-value strong {
+  display: block;
+  font-size: 1.5rem;
+  margin-bottom: 8px;
 }
 
 .preview-grid {
@@ -695,11 +865,20 @@ async function createOrder() {
   color: var(--text-muted);
 }
 
+.pending-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.danger-btn {
+  border-color: rgba(255, 94, 94, 0.35);
+  color: #ffb4b4;
+}
+
 @media (max-width: 1080px) {
   .hero,
   .guide-grid,
-  .payment-grid,
-  .action-grid {
+  .payment-grid {
     grid-template-columns: 1fr;
   }
 
@@ -710,17 +889,22 @@ async function createOrder() {
 }
 
 @media (max-width: 820px) {
-  .month-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .month-grid,
+  .price-grid {
+    grid-template-columns: 1fr 1fr;
   }
 
-  .amount-box {
-    grid-template-columns: 48px 1fr 48px;
+  .stepper-row {
+    grid-template-columns: 48px minmax(0, 1fr) 48px;
   }
 
   .pending-item {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .pending-actions {
+    flex-direction: column;
   }
 }
 </style>
