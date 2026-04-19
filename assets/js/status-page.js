@@ -1,241 +1,115 @@
 const statusConfig = window.VRCLS_STATUS_CONFIG || {}
 
 const elements = {
+  headerBox: document.getElementById('header-box'),
   title: document.getElementById('overall-title'),
   message: document.getElementById('overall-message'),
-  badge: document.getElementById('overall-badge'),
   updated: document.getElementById('stat-updated'),
   services: document.getElementById('stat-services'),
   latency: document.getElementById('stat-latency'),
   uptime: document.getElementById('stat-uptime'),
   servicesGrid: document.getElementById('services-grid'),
   incidentList: document.getElementById('incident-list'),
-  apiBaseNote: document.getElementById('api-base-note'),
   refreshButton: document.getElementById('refresh-button'),
 }
 
-let refreshTimer = null
-
 function formatDate(value) {
   if (!value) return '--'
-
-  return new Date(value).toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function statusLabel(status) {
-  switch (status) {
-    case 'operational':
-      return '运行正常'
-    case 'degraded':
-      return '部分降级'
-    case 'outage':
-      return '服务中断'
-    case 'loading':
-      return '加载中'
-    default:
-      return '未知状态'
-  }
-}
-
-function setBadge(status, text) {
-  elements.badge.className = 'status-badge'
-  elements.badge.classList.add(`status-${status || 'loading'}`)
-  elements.badge.textContent = text
+  return new Date(value).toLocaleString('zh-CN', { hour12: false })
 }
 
 function averageLatency(services) {
-  const latencies = services.map((item) => Number(item.responseTimeMs)).filter(Number.isFinite)
+  const latencies = services.map((service) => Number(service.responseTimeMs)).filter(Number.isFinite)
   if (!latencies.length) return '--'
-
-  const avg = Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length)
-  return `${avg} ms`
+  return `${Math.round(latencies.reduce((sum, latency) => sum + latency, 0) / latencies.length)} ms`
 }
 
 function isPublicService(service) {
+  if (service.public === false) return false
   const visibility = String(service.visibility || service.audience || '').toLowerCase()
-  const endpoint = String(service.publicEndpoint || '').toLowerCase()
-  const serviceName = String(service.name || '').toLowerCase()
-  const serviceId = String(service.id || '').toLowerCase()
-
-  if (service.public === false) {
-    return false
-  }
-  if (visibility === 'internal' || visibility === 'private') {
-    return false
-  }
-  if (
-    endpoint.includes('internal') ||
-    endpoint.includes('private') ||
-    serviceName.includes('admin') ||
-    serviceId.includes('admin') ||
-    serviceId.includes('manage')
-  ) {
-    return false
-  }
+  if (visibility === 'internal' || visibility === 'private') return false
   return true
 }
 
 function renderServices(services) {
   if (!services.length) {
-    elements.servicesGrid.innerHTML = '<div class="empty-state">当前没有可公开展示的服务节点。</div>'
+    elements.servicesGrid.innerHTML = '<div style="padding:24px; color:var(--text-muted); text-align:center;">暂无服务节点数据</div>'
     return
   }
-
-  elements.servicesGrid.innerHTML = services
-    .map(
-      (service) => `
-    <article class="service-card">
-      <div class="service-topline">
-        <div>
-          <h3>${service.name}</h3>
-          <p>${service.description || ''}</p>
+  elements.servicesGrid.innerHTML = services.map((service) => `
+    <div class="service-item">
+      <div>
+        <div class="service-name">
+          <div class="status-indicator ${service.status}"></div>
+          ${service.name}
         </div>
-        <span class="status-badge status-${service.status}">${statusLabel(service.status)}</span>
+        <div class="service-desc">${service.description || ''}</div>
       </div>
       <div class="service-meta">
-        <span><strong>区域</strong><small>${service.region || '--'}</small></span>
-        <span><strong>响应延迟</strong><small>${Number.isFinite(Number(service.responseTimeMs)) ? `${service.responseTimeMs} ms` : '--'}</small></span>
-        <span><strong>30 天可用率</strong><small>${Number.isFinite(Number(service.uptime30d)) ? `${service.uptime30d}%` : '--'}</small></span>
-        <span><strong>最近检查</strong><small>${formatDate(service.lastCheckedAt)}</small></span>
+        <div style="margin-bottom: 4px;">延迟: <strong>${service.responseTimeMs || '--'} ms</strong></div>
+        <div>30天可用率: <strong>${service.uptime30d || '--'}%</strong></div>
       </div>
-    </article>
-  `,
-    )
-    .join('')
+    </div>
+  `).join('')
 }
 
 function renderIncidents(incidents) {
   if (!incidents.length) {
-    elements.incidentList.innerHTML = '<div class="empty-state">最近暂无公开维护或异常事件。</div>'
+    elements.incidentList.innerHTML = '<div style="padding:24px; text-align:center; color:var(--text-muted);">近期无异常或维护记录。</div>'
     return
   }
-
-  elements.incidentList.innerHTML = incidents
-    .map(
-      (incident) => `
-    <article class="incident-card">
-      <div class="incident-topline">
-        <div>
-          <h3>${incident.title}</h3>
-          <p>${incident.summary || ''}</p>
-        </div>
-        <span class="severity ${incident.impact || 'minor'}">${incident.impact || 'minor'}</span>
+  elements.incidentList.innerHTML = incidents.map((incident) => `
+    <div class="incident-item">
+      <div class="incident-title">
+        <span style="color: ${incident.impact === 'major' ? 'var(--danger)' : 'var(--text-main)'}">${incident.title}</span>
+        <span class="incident-time">${formatDate(incident.startedAt)} - ${incident.status === 'resolved' ? '已解决' : '调查中'}</span>
       </div>
-      <div class="incident-meta">
-        <span><strong>阶段</strong><small>${incident.status || '--'}</small></span>
-        <span><strong>开始时间</strong><small>${formatDate(incident.startedAt)}</small></span>
-        <span><strong>恢复时间</strong><small>${formatDate(incident.resolvedAt)}</small></span>
+      <p style="color: var(--text-main); font-size:0.875rem;">${incident.summary}</p>
+      <div class="incident-updates">
+        ${(incident.updates || []).map((update) => `<div><strong>${formatDate(update.at)}</strong> · ${update.message}</div>`).join('')}
       </div>
-      ${
-        (incident.updates || []).length
-          ? `
-        <div class="incident-updates">
-          <ul>
-            ${(incident.updates || []).map((update) => `<li>${formatDate(update.at)} · ${update.message}</li>`).join('')}
-          </ul>
-        </div>
-      `
-          : ''
-      }
-    </article>
-  `,
-    )
-    .join('')
+    </div>
+  `).join('')
 }
 
-function render(payload, dataSource) {
+function render(payload) {
   const services = (payload.services || []).filter(isPublicService)
-  const overall = payload.overall || {}
+  const overallStatus = payload.overall?.status || 'loading'
 
-  elements.title.textContent = overall.title || 'VoiceLinkVR 平台运行状态'
-  elements.message.textContent = overall.message || '实时监控公开服务、翻译节点与平台状态。'
-  setBadge(overall.status || 'loading', statusLabel(overall.status || 'loading'))
+  elements.headerBox.className = `status-header-box ${overallStatus === 'operational' ? 'success' : overallStatus === 'outage' ? 'danger' : overallStatus === 'loading' ? '' : 'warning'}`
+  elements.title.textContent = payload.overall?.title || '所有系统运行正常'
+  elements.message.textContent = payload.overall?.message || '目前未发现任何问题。'
   elements.updated.textContent = formatDate(payload.updatedAt)
   elements.services.textContent = String(services.length)
   elements.latency.textContent = averageLatency(services)
-  elements.uptime.textContent = Number.isFinite(Number(overall.uptime30d)) ? `${overall.uptime30d}%` : '--'
-  elements.apiBaseNote.textContent = `Data Source: ${dataSource} · public`
+  elements.uptime.textContent = payload.overall?.uptime30d ? `${payload.overall.uptime30d}%` : '--'
 
   renderServices(services)
   renderIncidents(payload.incidents || [])
 }
 
 async function fetchJson(url) {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 8000)
-
-  try {
-    const response = await fetch(url, { signal: controller.signal, cache: 'no-store' })
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
-    }
-    return await response.json()
-  } finally {
-    clearTimeout(timeout)
-  }
-}
-
-function getBaseUrl() {
-  const queryApi = new URLSearchParams(window.location.search).get('api')
-  return queryApi || statusConfig.apiBaseUrl || ''
-}
-
-function buildApiUrl(forceRefresh) {
-  const baseUrl = getBaseUrl()
-  if (!baseUrl) return ''
-
-  const normalizedBase = baseUrl.replace(/\/$/, '')
-  const path = forceRefresh
-    ? statusConfig.refreshStatusPath || '/api/status/refresh'
-    : statusConfig.publicStatusPath || '/api/status/public'
-  const params = new URLSearchParams()
-
-  if (statusConfig.serviceAudience) {
-    params.set('audience', statusConfig.serviceAudience)
-  }
-
-  const queryString = params.toString()
-  return `${normalizedBase}${path}${queryString ? `?${queryString}` : ''}`
+  const response = await fetch(url, { cache: 'no-store' })
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  return await response.json()
 }
 
 async function loadStatus(forceRefresh = false) {
   elements.refreshButton.disabled = true
-  setBadge('loading', '加载中')
-
   try {
-    const apiUrl = buildApiUrl(forceRefresh)
-
-    if (apiUrl) {
-      const payload = await fetchJson(apiUrl)
-      render(payload, apiUrl)
-      return
-    }
-
-    const samplePayload = await fetchJson(statusConfig.sampleDataPath)
-    render(samplePayload, 'local sample')
+    const baseUrl = statusConfig.apiBaseUrl || ''
+    const apiPath = forceRefresh
+      ? statusConfig.refreshStatusPath || '/api/status/refresh'
+      : statusConfig.publicStatusPath || '/api/status/public'
+    const url = baseUrl ? `${baseUrl}${apiPath}` : statusConfig.sampleDataPath
+    const payload = await fetchJson(url)
+    render(payload)
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-
-    if (statusConfig.useSampleOnFailure) {
-      try {
-        const samplePayload = await fetchJson(statusConfig.sampleDataPath)
-        render(samplePayload, 'fallback sample')
-        elements.message.textContent = `实时状态接口获取失败，当前显示后备数据：${message}`
-      } catch (sampleError) {
-        const fallbackMessage = sampleError instanceof Error ? sampleError.message : String(sampleError)
-        elements.message.textContent = `状态页加载失败：${fallbackMessage}`
-        setBadge('outage', '加载失败')
-      }
-    } else {
-      elements.message.textContent = `状态页加载失败：${message}`
-      setBadge('outage', '加载失败')
-    }
+    elements.headerBox.className = 'status-header-box danger'
+    elements.title.textContent = '状态读取失败'
+    elements.message.textContent = `无法获取实时状态：${error instanceof Error ? error.message : String(error)}`
+    elements.servicesGrid.innerHTML = '<div style="padding:24px; color:var(--text-muted); text-align:center;">请稍后重试。</div>'
+    elements.incidentList.innerHTML = '<div style="padding:24px; text-align:center; color:var(--text-muted);">暂无可用事件数据。</div>'
   } finally {
     elements.refreshButton.disabled = false
   }
@@ -245,11 +119,5 @@ elements.refreshButton.addEventListener('click', () => loadStatus(true))
 loadStatus()
 
 if (statusConfig.refreshIntervalMs > 0) {
-  refreshTimer = window.setInterval(() => loadStatus(true), statusConfig.refreshIntervalMs)
+  window.setInterval(() => loadStatus(true), statusConfig.refreshIntervalMs)
 }
-
-window.addEventListener('beforeunload', () => {
-  if (refreshTimer) {
-    window.clearInterval(refreshTimer)
-  }
-})

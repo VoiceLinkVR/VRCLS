@@ -23,9 +23,19 @@ if (Test-Path $ArchivePath) {
     Remove-Item -LiteralPath $ArchivePath -Force
 }
 
-tar -cf $ArchivePath -C $distRoot .
-if ($LASTEXITCODE -ne 0) {
-    throw "Failed to create archive: $ArchivePath"
+Push-Location $distRoot
+try {
+    $entries = Get-ChildItem -Force | ForEach-Object { $_.Name }
+    if (-not $entries -or $entries.Count -eq 0) {
+        throw "Nothing to archive in $distRoot"
+    }
+
+    & tar -cf $ArchivePath @entries
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to create archive: $ArchivePath"
+    }
+} finally {
+    Pop-Location
 }
 
 Write-Host "Packed deploy archive at $ArchivePath"

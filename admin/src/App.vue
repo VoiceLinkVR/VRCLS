@@ -1,14 +1,16 @@
 ﻿<script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import ContentManagementTab from './components/ContentManagementTab.vue'
 
 type NoticeKind = 'info' | 'success' | 'error'
-type TabKey = 'dashboard' | 'users' | 'orders' | 'stats' | 'configs'
+type TabKey = 'dashboard' | 'users' | 'orders' | 'stats' | 'configs' | 'content'
+
+const ADMIN_API_PREFIX = '/v2/adminapi'
 
 type AdminUser = {
   id: string
   username: string
   email: string
-  display_name: string
   email_verified: boolean
   is_admin: boolean
 }
@@ -31,6 +33,12 @@ type UserSummary = {
 type UserRecord = AdminUser & {
   is_active: boolean
   limit_rule: string | null
+  current_quota_display: string | null
+  plan_ref: string | null
+  pricing_mode: string | null
+  plan_price: number | null
+  daily_quota: number | null
+  rate_limit_rule: string | null
   expiration_date: string | null
   boost_expiration_date: string | null
   boost_limit_rule: string | null
@@ -211,11 +219,26 @@ function emptyUserForm() {
     username: '',
     password: '',
     email: '',
-    display_name: '',
     is_admin: false,
     is_active: true,
-    limit_rule: '',
     expiration_date: '',
+  }
+}
+
+function emptyEntitlementForm() {
+  return {
+    plan_price: '',
+    daily_quota: '',
+    pricing_mode: 'fixed_tiers',
+    plan_ref: '',
+    subscription_status: 'active',
+    subscription_expires_at: '',
+    rate_limit_rule: '',
+    addon_balance: '',
+    addon_total_purchased: '',
+    addon_expires_at: '',
+    clear_addon: false,
+    reset_to_free: false,
   }
 }
 
@@ -250,8 +273,73 @@ function asJson(value: unknown) {
   return JSON.stringify(value, null, 2)
 }
 
+function hasChineseText(value: string | null | undefined) {
+  return /[\u4e00-\u9fff]/.test(value ?? '')
+}
+
+function configDisplayLabel(item: SiteConfigItem) {
+  const label = item.label?.trim() ?? ''
+  if (label && hasChineseText(label)) {
+    return label
+  }
+
+  const description = item.description?.trim() ?? ''
+  if (description && hasChineseText(description)) {
+    return description
+  }
+
+  return label || description || '未命名配置项'
+}
+
+function configDescriptionText(item: SiteConfigItem | null) {
+  if (!item) {
+    return ''
+  }
+
+  const description = item.description?.trim() ?? ''
+  if (description && hasChineseText(description)) {
+    return description
+  }
+
+  return `${item.group_label}中的 ${item.key} 配置项。`
+}
+
+function orderStatusLabel(order: Pick<OrderRecord, 'status' | 'status_label'>) {
+  const normalized = (order.status || '').trim().toLowerCase()
+  const mapped = {
+    activated: '已激活',
+    pending: '待处理',
+    unpaid: '已关闭',
+    cancelled: '已取消',
+    canceled: '已取消',
+    closed: '已关闭',
+    paid: '已支付',
+    unknown: '未知',
+  }[normalized]
+
+  if (mapped) {
+    return mapped
+  }
+
+  if (hasChineseText(order.status_label)) {
+    return order.status_label
+  }
+
+  return order.status || order.status_label || '-'
+}
+
 function planModeLabel(mode: string) {
   return mode === 'ladder' ? '阶梯模式' : '固定档模式'
+}
+
+function userQuotaLabel(user: UserRecord) {
+  if (user.current_quota_display) {
+    return user.current_quota_display
+  }
+  if (user.daily_quota) {
+    return `${user.daily_quota}/day`
+  }
+  return '-'
 }
 
 function syncConfigDraft(item: SiteConfigItem | null) {
@@ -334,7 +422,6 @@ const bootstrapForm = reactive({
   username: 'admin',
   password: '',
   email: '',
-  display_name: '管理员',
 })
 
 const loginForm = reactive({
@@ -344,6 +431,7 @@ const loginForm = reactive({
 
 const createForm = reactive(emptyUserForm())
 const editForm = reactive(emptyUserForm())
+const entitlementForm = reactive(emptyEntitlementForm())
 
 const hasSession = computed(() => Boolean(authState.value.user))
 const selectedUserOrders = computed(() => userDetail.value?.orders ?? [])
@@ -400,33 +488,50 @@ function applyUserToForm(target: ReturnType<typeof emptyUserForm>, user: UserRec
   target.username = user.username
   target.password = ''
   target.email = user.email ?? ''
-  target.display_name = user.display_name ?? ''
   target.is_admin = user.is_admin
   target.is_active = user.is_active
-  target.limit_rule = user.limit_rule ?? ''
   target.expiration_date = toDateInput(user.expiration_date)
 }
 
+function applyEntitlementToForm(user: UserRecord) {
+  entitlementForm.plan_price = user.plan_price == null ? '' : String(user.plan_price)
+  entitlementForm.daily_quota = user.daily_quota == null ? '' : String(user.daily_quota)
+  entitlementForm.pricing_mode = user.pricing_mode || 'fixed_tiers'
+  entitlementForm.plan_ref = user.plan_ref || ''
+  entitlementForm.subscription_status = (user.plan_price ?? 0) <= 0 ? 'free' : (user.is_active ? 'active' : 'inactive')
+  entitlementForm.subscription_expires_at = toDateInput(user.expiration_date)
+  entitlementForm.rate_limit_rule = user.rate_limit_rule || ''
+  entitlementForm.addon_balance = String(user.addon_resource_balance ?? 0)
+  entitlementForm.addon_total_purchased = String(user.addon_resource_total ?? 0)
+  entitlementForm.addon_expires_at = toDateInput(user.addon_expiration_date)
+  entitlementForm.clear_addon = false
+  entitlementForm.reset_to_free = (user.plan_price ?? 0) <= 0
+}
+
+function resetEntitlementForm() {
+  Object.assign(entitlementForm, emptyEntitlementForm())
+}
+
 async function refreshDashboard() {
-  dashboard.value = await requestJson<DashboardPayload>('/adminapi/dashboard/summary')
+  dashboard.value = await requestJson<DashboardPayload>(`${ADMIN_API_PREFIX}/dashboard/summary`)
 }
 
 async function refreshUsers() {
-  usersPayload.value = await requestJson<UserListPayload>('/adminapi/users')
+  usersPayload.value = await requestJson<UserListPayload>(`${ADMIN_API_PREFIX}/users`)
 }
 
 async function refreshOrders() {
-  ordersPayload.value = await requestJson<OrdersPayload>('/adminapi/orders')
+  ordersPayload.value = await requestJson<OrdersPayload>(`${ADMIN_API_PREFIX}/orders`)
 }
 
 async function refreshStats(hour?: string) {
   const query = hour ? `?hour=${encodeURIComponent(hour)}` : ''
-  statsPayload.value = await requestJson<StatsPayload>(`/adminapi/stats${query}`)
+  statsPayload.value = await requestJson<StatsPayload>(`${ADMIN_API_PREFIX}/stats${query}`)
   selectedStatsHour.value = statsPayload.value.selected_hour ?? ''
 }
 
 async function refreshConfigs() {
-  siteConfigsPayload.value = await requestJson<SiteConfigListPayload>('/adminapi/configs')
+  siteConfigsPayload.value = await requestJson<SiteConfigListPayload>(`${ADMIN_API_PREFIX}/configs`)
   if (!selectedConfigKey.value && siteConfigsPayload.value.items.length > 0) {
     openConfigEditor(siteConfigsPayload.value.items[0])
     return
@@ -448,13 +553,14 @@ async function refreshAll() {
 }
 
 async function loadUserDetail(id: string) {
-  userDetail.value = await requestJson<UserDetailPayload>(`/adminapi/users/${id}`)
+  userDetail.value = await requestJson<UserDetailPayload>(`${ADMIN_API_PREFIX}/users/${id}`)
   selectedUserId.value = id
   applyUserToForm(editForm, userDetail.value.user)
+  applyEntitlementToForm(userDetail.value.user)
 }
 
 async function loadAuthState() {
-  authState.value = await requestJson<AuthStateResponse>('/adminapi/auth/state')
+  authState.value = await requestJson<AuthStateResponse>(`${ADMIN_API_PREFIX}/auth/state`)
 }
 
 async function bootstrapApp() {
@@ -476,10 +582,8 @@ function payloadFromForm(form: ReturnType<typeof emptyUserForm>) {
     username: form.username,
     password: form.password || null,
     email: form.email || null,
-    display_name: form.display_name || null,
     is_admin: form.is_admin,
     is_active: form.is_active,
-    limit_rule: form.limit_rule || null,
     expiration_date: form.expiration_date || null,
   }
 }
@@ -488,7 +592,7 @@ async function handleBootstrap() {
   busy.value = true
   clearNotice()
   try {
-    await requestJson('/adminapi/auth/bootstrap', {
+    await requestJson(`${ADMIN_API_PREFIX}/auth/bootstrap`, {
       method: 'POST',
       body: JSON.stringify(bootstrapForm),
     })
@@ -506,7 +610,7 @@ async function handleLogin() {
   busy.value = true
   clearNotice()
   try {
-    await requestJson('/adminapi/auth/login', {
+    await requestJson(`${ADMIN_API_PREFIX}/auth/login`, {
       method: 'POST',
       body: JSON.stringify(loginForm),
     })
@@ -523,7 +627,7 @@ async function handleLogin() {
 async function handleLogout() {
   busy.value = true
   try {
-    await requestJson('/adminapi/auth/logout', { method: 'POST' })
+    await requestJson(`${ADMIN_API_PREFIX}/auth/logout`, { method: 'POST' })
   } catch {
     // Ignore transport failures and clear local state anyway.
   } finally {
@@ -539,6 +643,7 @@ async function handleLogout() {
     configAuditPayload.value = null
     selectedUserId.value = ''
     selectedConfigKey.value = ''
+    resetEntitlementForm()
     setNotice('info', '已退出登录。')
     busy.value = false
   }
@@ -548,7 +653,7 @@ async function handleCreateUser() {
   busy.value = true
   clearNotice()
   try {
-    await requestJson('/adminapi/users', {
+    await requestJson(`${ADMIN_API_PREFIX}/users`, {
       method: 'POST',
       body: JSON.stringify(payloadFromForm(createForm)),
     })
@@ -570,7 +675,7 @@ async function handleUpdateUser() {
   busy.value = true
   clearNotice()
   try {
-    await requestJson(`/adminapi/users/${selectedUserId.value}`, {
+    await requestJson(`${ADMIN_API_PREFIX}/users/${selectedUserId.value}`, {
       method: 'PATCH',
       body: JSON.stringify(payloadFromForm(editForm)),
     })
@@ -590,16 +695,58 @@ async function handleDeleteUser(id: string) {
   busy.value = true
   clearNotice()
   try {
-    await requestJson(`/adminapi/users/${id}`, { method: 'DELETE' })
+    await requestJson(`${ADMIN_API_PREFIX}/users/${id}`, { method: 'DELETE' })
     if (selectedUserId.value === id) {
       selectedUserId.value = ''
       userDetail.value = null
       Object.assign(editForm, emptyUserForm())
+      resetEntitlementForm()
     }
     await Promise.all([refreshUsers(), refreshDashboard()])
     setNotice('success', '用户已删除。')
   } catch (error) {
     setNotice('error', error instanceof Error ? error.message : '删除用户失败')
+  } finally {
+    busy.value = false
+  }
+}
+
+function buildEntitlementPayload() {
+  const payload: Record<string, unknown> = {
+    clear_addon: entitlementForm.clear_addon,
+    reset_to_free: entitlementForm.reset_to_free,
+  }
+
+  if (entitlementForm.plan_price.trim()) payload.plan_price = Number(entitlementForm.plan_price)
+  if (entitlementForm.daily_quota.trim()) payload.daily_quota = Number(entitlementForm.daily_quota)
+  if (entitlementForm.pricing_mode.trim()) payload.pricing_mode = entitlementForm.pricing_mode
+  if (entitlementForm.plan_ref.trim()) payload.plan_ref = entitlementForm.plan_ref.trim()
+  if (entitlementForm.subscription_status.trim()) payload.subscription_status = entitlementForm.subscription_status
+  if (entitlementForm.subscription_expires_at.trim()) payload.subscription_expires_at = entitlementForm.subscription_expires_at
+  if (entitlementForm.rate_limit_rule.trim()) payload.rate_limit_rule = entitlementForm.rate_limit_rule.trim()
+  if (entitlementForm.addon_balance.trim()) payload.addon_balance = Number(entitlementForm.addon_balance)
+  if (entitlementForm.addon_total_purchased.trim()) payload.addon_total_purchased = Number(entitlementForm.addon_total_purchased)
+  if (entitlementForm.addon_expires_at.trim()) payload.addon_expires_at = entitlementForm.addon_expires_at
+
+  return payload
+}
+
+async function handleManualEntitlementUpdate() {
+  if (!selectedUserId.value) {
+    setNotice('error', '请先选择用户。')
+    return
+  }
+  busy.value = true
+  clearNotice()
+  try {
+    await requestJson(`${ADMIN_API_PREFIX}/users/${selectedUserId.value}/entitlements`, {
+      method: 'PATCH',
+      body: JSON.stringify(buildEntitlementPayload()),
+    })
+    await Promise.all([refreshUsers(), refreshDashboard(), loadUserDetail(selectedUserId.value)])
+    setNotice('success', '人工修正已生效。')
+  } catch (error) {
+    setNotice('error', error instanceof Error ? error.message : '人工修正失败')
   } finally {
     busy.value = false
   }
@@ -613,7 +760,7 @@ async function handleLookupOrder() {
   busy.value = true
   clearNotice()
   try {
-    lookupResult.value = await requestJson('/adminapi/orders/lookup', {
+    lookupResult.value = await requestJson(`${ADMIN_API_PREFIX}/orders/lookup`, {
       method: 'POST',
       body: JSON.stringify({ keyword: lookupKeyword.value }),
     })
@@ -634,7 +781,7 @@ async function handleParseToken() {
   busy.value = true
   clearNotice()
   try {
-    tokenParseResult.value = await requestJson('/adminapi/afdian/parse-token', {
+    tokenParseResult.value = await requestJson(`${ADMIN_API_PREFIX}/afdian/parse-token`, {
       method: 'POST',
       body: JSON.stringify({ keyword: lookupKeyword.value }),
     })
@@ -654,7 +801,7 @@ async function handleActivateOrder() {
   busy.value = true
   clearNotice()
   try {
-    lookupResult.value = await requestJson('/adminapi/orders/activate', {
+    lookupResult.value = await requestJson(`${ADMIN_API_PREFIX}/orders/activate`, {
       method: 'POST',
       body: JSON.stringify({ keyword: lookupKeyword.value }),
     })
@@ -691,7 +838,7 @@ async function handleLoadConfigAudit(key?: string) {
   try {
     selectedConfigKey.value = targetKey
     configAuditPayload.value = await requestJson<SiteConfigAuditPayload>(
-      `/adminapi/configs/audit?config_key=${encodeURIComponent(targetKey)}&limit=${encodeURIComponent(configAuditLimit.value)}`,
+      `${ADMIN_API_PREFIX}/configs/audit?config_key=${encodeURIComponent(targetKey)}&limit=${encodeURIComponent(configAuditLimit.value)}`,
     )
     setNotice('success', '配置审计已刷新。')
   } catch (error) {
@@ -709,7 +856,7 @@ async function handleSaveConfig() {
   busy.value = true
   clearNotice()
   try {
-    const payload = await requestJson<SiteConfigUpdatePayload>('/adminapi/configs', {
+    const payload = await requestJson<SiteConfigUpdatePayload>(`${ADMIN_API_PREFIX}/configs`, {
       method: 'PUT',
       body: JSON.stringify({
         items: [
@@ -743,7 +890,7 @@ async function handleClearConfigOverride() {
   busy.value = true
   clearNotice()
   try {
-    const payload = await requestJson<SiteConfigUpdatePayload>('/adminapi/configs', {
+    const payload = await requestJson<SiteConfigUpdatePayload>(`${ADMIN_API_PREFIX}/configs`, {
       method: 'PUT',
       body: JSON.stringify({
         items: [
@@ -803,10 +950,6 @@ onMounted(() => {
             <input v-model.trim="bootstrapForm.username" class="input-field" required />
           </label>
           <label>
-            <span>显示名称</span>
-            <input v-model.trim="bootstrapForm.display_name" class="input-field" />
-          </label>
-          <label>
             <span>邮箱</span>
             <input v-model.trim="bootstrapForm.email" class="input-field" type="email" />
           </label>
@@ -841,7 +984,7 @@ onMounted(() => {
         </div>
         <div class="topbar-actions">
           <div class="identity glass-chip">
-            <strong>{{ authState.user?.display_name || authState.user?.username }}</strong>
+            <strong>{{ authState.user?.username }}</strong>
             <span>{{ authState.user?.email || authState.user?.username }}</span>
           </div>
           <button class="btn btn-outline" :disabled="busy" @click="handleLogout">退出登录</button>
@@ -855,6 +998,7 @@ onMounted(() => {
         <button class="tab" :class="{ active: activeTab === 'users' }" @click="activeTab = 'users'">用户</button>
         <button class="tab" :class="{ active: activeTab === 'orders' }" @click="activeTab = 'orders'">订单</button>
         <button class="tab" :class="{ active: activeTab === 'stats' }" @click="activeTab = 'stats'">统计</button>
+        <button class="tab" :class="{ active: activeTab === 'content' }" @click="activeTab = 'content'">内容</button>
         <button class="tab" :class="{ active: activeTab === 'configs' }" @click="activeTab = 'configs'">配置</button>
       </nav>
 
@@ -864,7 +1008,7 @@ onMounted(() => {
             <article class="metric-card glass-panel"><span>用户总数</span><strong>{{ dashboard?.users.total_users ?? 0 }}</strong></article>
             <article class="metric-card glass-panel"><span>活跃用户</span><strong>{{ dashboard?.users.active_users ?? 0 }}</strong></article>
             <article class="metric-card glass-panel"><span>订单总数</span><strong>{{ dashboard?.orders.total_orders ?? 0 }}</strong></article>
-            <article class="metric-card glass-panel"><span>已激活金额</span><strong>CNY {{ dashboard?.orders.activated_amount_total ?? 0 }}</strong></article>
+            <article class="metric-card glass-panel"><span>已激活金额</span><strong>￥{{ dashboard?.orders.activated_amount_total ?? 0 }}</strong></article>
           </div>
 
           <div class="split-grid">
@@ -874,7 +1018,7 @@ onMounted(() => {
                 <thead><tr><th>用户</th><th>角色</th><th>状态</th><th>最近登录</th></tr></thead>
                 <tbody>
                   <tr v-for="user in dashboard?.latest_users ?? []" :key="user.id">
-                    <td><strong>{{ user.display_name }}</strong><span>{{ user.username }}</span></td>
+                    <td><strong>{{ user.username }}</strong><span>{{ user.email || '-' }}</span></td>
                     <td>{{ user.is_admin ? '管理员' : '普通用户' }}</td>
                     <td>{{ user.is_active ? '启用' : '停用' }}</td>
                     <td>{{ formatDate(user.last_login_at) }}</td>
@@ -891,7 +1035,7 @@ onMounted(() => {
                   <tr v-for="order in dashboard?.latest_orders ?? []" :key="order.id">
                     <td>{{ order.out_trade_no || order.order_no || `#${order.id}` }}</td>
                     <td>{{ order.username || '-' }}</td>
-                    <td>{{ order.status_label }}</td>
+                    <td>{{ orderStatusLabel(order) }}</td>
                     <td>{{ order.amount ?? '-' }}</td>
                   </tr>
                 </tbody>
@@ -913,10 +1057,8 @@ onMounted(() => {
               <div class="section-head"><h2>创建用户</h2><button class="btn btn-ghost" :disabled="busy" @click="Object.assign(createForm, emptyUserForm())">重置</button></div>
               <div class="form-grid">
                 <label><span>用户名</span><input v-model.trim="createForm.username" class="input-field" /></label>
-                <label><span>显示名称</span><input v-model.trim="createForm.display_name" class="input-field" /></label>
                 <label><span>邮箱</span><input v-model.trim="createForm.email" class="input-field" type="email" /></label>
                 <label><span>密码</span><input v-model="createForm.password" class="input-field" type="password" /></label>
-                <label><span>限额规则</span><input v-model.trim="createForm.limit_rule" class="input-field" placeholder="800/day;8/minute" /></label>
                 <label><span>到期时间</span><input v-model="createForm.expiration_date" class="input-field" type="datetime-local" /></label>
                 <label class="check-row"><input v-model="createForm.is_admin" type="checkbox" /> 管理员</label>
                 <label class="check-row"><input v-model="createForm.is_active" type="checkbox" /> 启用</label>
@@ -931,10 +1073,8 @@ onMounted(() => {
               </div>
               <div class="form-grid">
                 <label><span>用户名</span><input v-model.trim="editForm.username" class="input-field" :disabled="!selectedUserId" /></label>
-                <label><span>显示名称</span><input v-model.trim="editForm.display_name" class="input-field" :disabled="!selectedUserId" /></label>
                 <label><span>邮箱</span><input v-model.trim="editForm.email" class="input-field" type="email" :disabled="!selectedUserId" /></label>
                 <label><span>新密码</span><input v-model="editForm.password" class="input-field" type="password" :disabled="!selectedUserId" /></label>
-                <label><span>限额规则</span><input v-model.trim="editForm.limit_rule" class="input-field" :disabled="!selectedUserId" /></label>
                 <label><span>到期时间</span><input v-model="editForm.expiration_date" class="input-field" type="datetime-local" :disabled="!selectedUserId" /></label>
                 <label class="check-row"><input v-model="editForm.is_admin" type="checkbox" :disabled="!selectedUserId" /> 管理员</label>
                 <label class="check-row"><input v-model="editForm.is_active" type="checkbox" :disabled="!selectedUserId" /> 启用</label>
@@ -944,16 +1084,58 @@ onMounted(() => {
             </section>
           </div>
 
+          <section class="glass-panel panel-section form-panel">
+            <div class="section-head">
+              <h2>人工修正额度</h2>
+              <button class="btn btn-ghost" :disabled="busy || !selectedUserId" @click="userDetail && applyEntitlementToForm(userDetail.user)">重置</button>
+            </div>
+            <div class="mini-card section-note">
+              <strong>人工处理入口</strong>
+              <span>用于修正套餐价格、日额度、到期时间、加油包余额等错误数据。付费用户已不再实际限速，`rate_limit_rule` 一般只对免费/测试用户有意义。</span>
+            </div>
+            <div class="form-grid">
+              <label><span>套餐月价</span><input v-model.trim="entitlementForm.plan_price" class="input-field" type="number" min="0" step="0.01" :disabled="!selectedUserId" /></label>
+              <label><span>日额度</span><input v-model.trim="entitlementForm.daily_quota" class="input-field" type="number" min="0" step="1" :disabled="!selectedUserId" /></label>
+              <label>
+                <span>计费模式</span>
+                <select v-model="entitlementForm.pricing_mode" class="input-field" :disabled="!selectedUserId">
+                  <option value="free">free</option>
+                  <option value="fixed_tiers">fixed_tiers</option>
+                  <option value="ladder">ladder</option>
+                </select>
+              </label>
+              <label><span>套餐标识</span><input v-model.trim="entitlementForm.plan_ref" class="input-field" :disabled="!selectedUserId" /></label>
+              <label>
+                <span>订阅状态</span>
+                <select v-model="entitlementForm.subscription_status" class="input-field" :disabled="!selectedUserId">
+                  <option value="free">free</option>
+                  <option value="active">active</option>
+                  <option value="inactive">inactive</option>
+                </select>
+              </label>
+              <label><span>订阅到期</span><input v-model="entitlementForm.subscription_expires_at" class="input-field" type="datetime-local" :disabled="!selectedUserId" /></label>
+              <label><span>限速规则</span><input v-model.trim="entitlementForm.rate_limit_rule" class="input-field" :disabled="!selectedUserId" /></label>
+              <label><span>加油包余额</span><input v-model.trim="entitlementForm.addon_balance" class="input-field" type="number" min="0" step="1" :disabled="!selectedUserId" /></label>
+              <label><span>加油包累计总量</span><input v-model.trim="entitlementForm.addon_total_purchased" class="input-field" type="number" min="0" step="1" :disabled="!selectedUserId" /></label>
+              <label><span>加油包到期</span><input v-model="entitlementForm.addon_expires_at" class="input-field" type="datetime-local" :disabled="!selectedUserId" /></label>
+              <label class="check-row"><input v-model="entitlementForm.clear_addon" type="checkbox" :disabled="!selectedUserId" /> 清空加油包</label>
+              <label class="check-row"><input v-model="entitlementForm.reset_to_free" type="checkbox" :disabled="!selectedUserId" /> 直接改回免费</label>
+            </div>
+            <div class="lookup-row">
+              <button class="btn btn-primary" :disabled="busy || !selectedUserId" @click="handleManualEntitlementUpdate">保存人工修正</button>
+            </div>
+          </section>
+
           <section class="glass-panel panel-section config-list-panel">
             <div class="section-head"><h2>用户列表</h2><button class="btn btn-ghost" :disabled="busy" @click="refreshUsers">刷新</button></div>
             <table class="data-table">
-              <thead><tr><th>用户</th><th>角色</th><th>状态</th><th>限额</th><th>订单数</th><th>操作</th></tr></thead>
+              <thead><tr><th>用户</th><th>角色</th><th>状态</th><th>当前额度</th><th>订单数</th><th>操作</th></tr></thead>
               <tbody>
                 <tr v-for="user in usersPayload?.items ?? []" :key="user.id" :class="{ selected: selectedUserId === user.id }">
-                  <td><strong>{{ user.display_name }}</strong><span>{{ user.username }}</span></td>
+                  <td><strong>{{ user.username }}</strong><span>{{ user.email || '-' }}</span></td>
                   <td>{{ user.is_admin ? '管理员' : '普通用户' }}</td>
                   <td>{{ user.is_active ? '启用' : '停用' }}</td>
-                  <td>{{ user.limit_rule || '-' }}</td>
+                  <td>{{ userQuotaLabel(user) }}</td>
                   <td>{{ user.afdian_summary.order_count }}</td>
                   <td class="actions-cell">
                     <button class="btn btn-ghost" :disabled="busy" @click="loadUserDetail(user.id)">打开</button>
@@ -970,7 +1152,7 @@ onMounted(() => {
             <article class="metric-card glass-panel"><span>订单总数</span><strong>{{ ordersPayload?.summary.total_orders ?? 0 }}</strong></article>
             <article class="metric-card glass-panel"><span>已激活</span><strong>{{ ordersPayload?.summary.activated_orders ?? 0 }}</strong></article>
             <article class="metric-card glass-panel"><span>待处理</span><strong>{{ ordersPayload?.summary.pending_orders ?? 0 }}</strong></article>
-            <article class="metric-card glass-panel"><span>已激活金额</span><strong>CNY {{ ordersPayload?.summary.activated_amount_total ?? 0 }}</strong></article>
+            <article class="metric-card glass-panel"><span>已激活金额</span><strong>￥{{ ordersPayload?.summary.activated_amount_total ?? 0 }}</strong></article>
           </div>
 
           <section class="glass-panel panel-section config-list-panel">
@@ -979,11 +1161,11 @@ onMounted(() => {
               <input v-model.trim="lookupKeyword" class="input-field" placeholder="out_trade_no / order_no / custom_id / remark" />
               <button class="btn btn-outline" :disabled="busy" @click="handleLookupOrder">查询</button>
               <button class="btn btn-primary" :disabled="busy" @click="handleActivateOrder">激活</button>
-              <button class="btn btn-ghost" :disabled="busy" @click="handleParseToken">解析 Token</button>
+              <button class="btn btn-ghost" :disabled="busy" @click="handleParseToken">解析令牌</button>
             </div>
             <div class="result-grid">
               <article class="glass-mini" v-if="lookupResult"><h3>查询结果</h3><pre>{{ asJson(lookupResult) }}</pre></article>
-              <article class="glass-mini" v-if="tokenParseResult"><h3>Token 解析</h3><pre>{{ asJson(tokenParseResult) }}</pre></article>
+              <article class="glass-mini" v-if="tokenParseResult"><h3>令牌解析</h3><pre>{{ asJson(tokenParseResult) }}</pre></article>
             </div>
           </section>
 
@@ -995,7 +1177,7 @@ onMounted(() => {
                 <tr v-for="order in ordersPayload?.items ?? []" :key="order.id">
                   <td><strong>{{ order.out_trade_no || order.order_no || `#${order.id}` }}</strong><span>{{ order.remark || order.custom_id || '-' }}</span></td>
                   <td>{{ order.username || '-' }}</td>
-                  <td>{{ order.status_label }}</td>
+                  <td>{{ orderStatusLabel(order) }}</td>
                   <td>{{ order.action || '-' }}</td>
                   <td>{{ order.amount ?? '-' }}</td>
                   <td>{{ formatDate(order.updated_at) }}</td>
@@ -1059,6 +1241,10 @@ onMounted(() => {
           </div>
         </section>
 
+        <section v-else-if="activeTab === 'content'" class="page-grid">
+          <ContentManagementTab />
+        </section>
+
         <section v-else class="page-grid">
           <div class="metrics-grid">
             <article class="metric-card glass-panel"><span>配置总数</span><strong>{{ siteConfigsPayload?.items.length ?? 0 }}</strong></article>
@@ -1110,28 +1296,31 @@ onMounted(() => {
               <table class="data-table config-table">
                 <thead>
                   <tr>
-                    <th>配置项</th>
-                    <th>分组</th>
-                    <th>当前值</th>
-                    <th>基础值</th>
-                    <th>最近修改</th>
-                    <th>操作</th>
+                    <th class="config-col-key">配置项</th>
+                    <th class="config-col-group">分组</th>
+                    <th class="config-col-value">当前值</th>
+                    <th class="config-col-value">基础值</th>
+                    <th class="config-col-updated">最近修改</th>
+                    <th class="config-col-actions">操作</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="item in filteredConfigItems" :key="item.key" :class="{ selected: selectedConfigKey === item.key }">
-                    <td><strong>{{ item.key }}</strong><span>{{ item.label }}</span></td>
-                    <td>
+                    <td class="config-item-cell">
+                      <strong>{{ item.key }}</strong>
+                      <span>{{ configDisplayLabel(item) }}</span>
+                    </td>
+                    <td class="config-group-cell">
                       <strong>{{ item.group_label }}</strong>
                       <span>{{ item.requires_restart ? '需要重启' : '热更新' }} / {{ item.is_secret ? '密钥' : '普通项' }}</span>
                     </td>
-                    <td>{{ item.value }}</td>
-                    <td>{{ item.base_value }}</td>
-                    <td>
+                    <td class="config-value-cell">{{ item.value }}</td>
+                    <td class="config-value-cell">{{ item.base_value }}</td>
+                    <td class="config-updated-cell">
                       <strong>{{ item.updated_by_username || '-' }}</strong>
                       <span>{{ formatDate(item.updated_at) }}</span>
                     </td>
-                    <td class="actions-cell">
+                    <td class="actions-cell config-actions-cell">
                       <button class="btn btn-ghost" :disabled="busy" @click="openConfigEditor(item)">编辑</button>
                       <button class="btn btn-outline" :disabled="busy" @click="handleLoadConfigAudit(item.key)">审计</button>
                     </td>
@@ -1155,7 +1344,7 @@ onMounted(() => {
                 <label><span>变更备注</span><input v-model.trim="configChangeNote" class="input-field" placeholder="写入审计记录" /></label>
                 <label class="config-editor-wide">
                   <span>配置说明</span>
-                  <textarea :value="selectedConfig.description" class="input-field config-meta-textarea" disabled></textarea>
+                  <textarea :value="configDescriptionText(selectedConfig)" class="input-field config-meta-textarea" disabled></textarea>
                 </label>
                 <label v-if="typeof selectedConfig.raw_value === 'boolean'">
                   <span>配置值</span>

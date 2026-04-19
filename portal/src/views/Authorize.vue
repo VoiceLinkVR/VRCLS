@@ -122,7 +122,7 @@ onMounted(() => {
           </div>
           <div v-if="requestPayload.username">
             <span class="meta-label">已绑定账户</span>
-            <strong>{{ requestPayload.display_name || requestPayload.username }}</strong>
+            <strong>{{ requestPayload.username }}</strong>
           </div>
         </div>
 

@@ -1,8 +1,8 @@
 param(
     [string]$Target = "root@192.168.2.53",
-    [string]$RemoteSiteDir = "/srv/vrclswebsite",
-    [string]$RemoteStatusProbeDir = "/srv/vrcls-status-probe",
-    [string]$RemoteArchivePath = "/tmp/vrclswebsite-deploy.tar",
+    [string]$RemoteSiteDir = "/root/vrcls-preview/frontend/site",
+    [string]$RemoteStatusProbeDir = "/root/vrcls-preview/status-api-demo",
+    [string]$RemoteArchivePath = "/root/vrcls-preview/deploy-site.tar",
     [switch]$Build
 )
 
@@ -38,5 +38,11 @@ if ($LASTEXITCODE -ne 0) {
     throw "Failed to sync status probe source"
 }
 
-Write-Host "Synchronized static site to $Target:$RemoteSiteDir"
-Write-Host "Synchronized status probe source to $Target:$RemoteStatusProbeDir"
+ssh $Target "docker restart vrcls-preview-status >/dev/null"
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to restart status probe container"
+}
+
+Write-Host "Synchronized static site to ${Target}:$RemoteSiteDir"
+Write-Host "Synchronized status probe source to ${Target}:$RemoteStatusProbeDir"
+Write-Host "Restarted status probe container on ${Target}"

@@ -77,7 +77,6 @@ const messages: Record<Locale, MessageNode> = {
       version: '版本',
       email: '邮箱地址',
       password: '密码',
-      displayName: '账户昵称',
       optional: '可选',
       backHome: '返回首页',
       planSummary: '当前为 {price}/月',
@@ -127,7 +126,6 @@ const messages: Record<Locale, MessageNode> = {
       submitLogin: '登入系统',
       submitRegister: '立即注册',
       submitting: '身份验证中...',
-      displayNamePlaceholder: '例: VR Explorer',
       emailPlaceholder: '请输入常用的邮箱地址',
       passwordPlaceholder: '长度至少 6 位字符',
     },
@@ -321,7 +319,6 @@ const messages: Record<Locale, MessageNode> = {
       version: 'Version',
       email: 'Email Address',
       password: 'Password',
-      displayName: 'Display Name',
       optional: 'Optional',
       backHome: 'Back to Home',
       planSummary: 'Current plan: {price}/month',
@@ -371,7 +368,6 @@ const messages: Record<Locale, MessageNode> = {
       submitLogin: 'Enter Console',
       submitRegister: 'Register Now',
       submitting: 'Verifying identity...',
-      displayNamePlaceholder: 'Example: VR Explorer',
       emailPlaceholder: 'Enter your primary email address',
       passwordPlaceholder: 'At least 6 characters',
     },
@@ -565,7 +561,6 @@ const messages: Record<Locale, MessageNode> = {
       version: 'バージョン',
       email: 'メールアドレス',
       password: 'パスワード',
-      displayName: '表示名',
       optional: '任意',
       backHome: 'ホームへ戻る',
       planSummary: '現在のプラン: {price}/月',
@@ -615,7 +610,6 @@ const messages: Record<Locale, MessageNode> = {
       submitLogin: 'ログイン',
       submitRegister: '今すぐ登録',
       submitting: '認証中...',
-      displayNamePlaceholder: '例: VR Explorer',
       emailPlaceholder: '普段使うメールアドレスを入力してください',
       passwordPlaceholder: '6 文字以上で入力してください',
     },
@@ -880,16 +874,18 @@ const apiMessageKeyMap: Record<string, string> = {
 
 export function translateApiError(error: LocalizedApiError | null | undefined, fallbackKey = 'errors.generic'): string {
   if (!error) {
-    return t(fallbackKey)
+    return fallbackKey === 'errors.accountExpired' ? '您的订阅服务已过期。' : '网关响应超时，请稍后重试。'
   }
   if (error.code === 'account_expired') {
-    return t('errors.accountExpired')
+    return '您的订阅服务已过期。'
   }
   const mapped = error.message ? apiMessageKeyMap[error.message] : undefined
-  if (mapped) {
-    return t(mapped)
-  }
-  return error.message || t(fallbackKey)
+  if (mapped === 'errors.invalidCredentials') return '认证失败：邮箱或密码无效。'
+  if (mapped === 'errors.emailRegistered') return '该邮箱已被注册，请直接登录。'
+  if (mapped === 'errors.userInactive') return '访问被拒绝：您的账户已被停用。'
+  if (mapped === 'errors.accountExpired') return '您的订阅服务已过期。'
+  if (mapped === 'errors.mismatchAction') return '交易配置异常：所选操作与目标金额不匹配。'
+  return error.message || '网关响应超时，请稍后重试。'
 }
 
 export function useI18n() {

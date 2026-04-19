@@ -3,82 +3,260 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta
-    name="description"
-    content="VoiceLinkVR 平台运行状态与事件通告，实时追踪公开服务、翻译节点与站点健康情况。"
-  >
-  <title>VoiceLinkVR | 平台运行状态</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <title>服务状态 | VoiceLinkVR</title>
   <link rel="stylesheet" href="../assets/css/site.css">
+  <style>
+    @keyframes pulse {
+      0% { opacity: 0.6; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.1); }
+      100% { opacity: 0.6; transform: scale(1); }
+    }
+
+    .status-page {
+      padding: 40px 0 80px;
+    }
+
+    .status-header-box {
+      background: linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-base) 100%);
+      border-radius: 16px;
+      padding: 48px;
+      text-align: center;
+      border: 1px solid var(--border);
+      margin-bottom: 32px;
+    }
+
+    .status-header-box.success {
+      border-color: rgba(0, 230, 118, 0.35);
+    }
+
+    .status-header-box.warning {
+      border-color: rgba(245, 166, 35, 0.35);
+    }
+
+    .status-header-box.danger {
+      border-color: rgba(255, 77, 77, 0.35);
+    }
+
+    .status-header-box h1 {
+      font-size: 2rem;
+      margin-bottom: 8px;
+    }
+
+    .status-header-box p {
+      color: var(--text-soft);
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .status-actions {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .status-indicator {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.04);
+    }
+
+    .status-indicator.operational {
+      background: var(--success);
+      box-shadow: 0 0 12px var(--success);
+      animation: pulse 2s infinite ease-in-out;
+    }
+
+    .status-indicator.degraded {
+      background: var(--warning);
+      box-shadow: 0 0 12px rgba(245, 166, 35, 0.65);
+      animation: pulse 2s infinite ease-in-out;
+    }
+
+    .status-indicator.outage {
+      background: var(--danger);
+      box-shadow: 0 0 12px rgba(255, 77, 77, 0.65);
+      animation: pulse 2s infinite ease-in-out;
+    }
+
+    .status-indicator.loading {
+      background: var(--text-muted);
+    }
+
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+
+    .metric-card {
+      padding: 24px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+    }
+
+    .metric-card span {
+      display: block;
+      color: var(--text-soft);
+      font-size: 0.875rem;
+      margin-bottom: 8px;
+    }
+
+    .metric-card strong {
+      color: var(--accent);
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .section-title {
+      font-size: 1.125rem;
+      margin: 40px 0 20px;
+      font-weight: 600;
+    }
+
+    .service-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .service-item:last-child {
+      border-bottom: none;
+    }
+
+    .service-name {
+      font-weight: 500;
+      font-size: 1.05rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+
+    .service-desc {
+      color: var(--text-soft);
+      font-size: 0.875rem;
+    }
+
+    .service-meta {
+      text-align: right;
+      font-size: 0.875rem;
+      color: var(--text-soft);
+    }
+
+    .service-meta strong {
+      color: var(--text-main);
+      font-weight: 500;
+    }
+
+    .incident-item {
+      padding: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .incident-item:last-child {
+      border-bottom: none;
+    }
+
+    .incident-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .incident-time {
+      color: var(--text-soft);
+      font-size: 0.875rem;
+      font-weight: normal;
+    }
+
+    .incident-updates {
+      margin-top: 16px;
+      border-left: 2px solid var(--border);
+      padding-left: 16px;
+      font-size: 0.875rem;
+      color: var(--text-soft);
+    }
+
+    .incident-updates div {
+      margin-bottom: 8px;
+    }
+
+    @media (max-width: 768px) {
+      .metrics-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .service-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .service-meta {
+        text-align: left;
+      }
+
+      .status-header-box {
+        padding: 32px 24px;
+      }
+
+      .status-actions {
+        flex-direction: column;
+      }
+    }
+  </style>
 </head>
 <body>
   <div class="page-shell">
-    <header class="site-header compact">
-      <a class="brand" href="../index.html" aria-label="返回首页">
-        <span class="brand-mark">V</span>
-        <span class="brand-text">
-          <strong>VoiceLinkVR</strong>
-          <small>Platform Status</small>
-        </span>
+    <header class="site-header">
+      <a class="brand" href="/">
+        <div class="brand-logo">V</div>
+        VoiceLinkVR
       </a>
-
-      <nav class="site-nav static-nav">
-        <a href="../index.html">返回首页</a>
-        <a href="../app/">控制台</a>
+      <nav class="site-nav">
+        <a href="/">返回首页</a>
+        <a href="../app/" class="btn btn-outline">进入控制台</a>
       </nav>
     </header>
 
-    <main class="section status-main">
-      <section class="status-hero glass-card">
+    <main class="status-page">
+      <div id="header-box" class="status-header-box">
         <div>
-          <p class="eyebrow">Live Platform Health</p>
-          <h1 id="overall-title">VoiceLinkVR 平台运行状态</h1>
-          <p id="overall-message">实时监控公开服务、翻译节点与平台状态。</p>
+          <h1 id="overall-title">获取状态中...</h1>
+          <p id="overall-message">正在连接探针服务，拉取最新的服务运行状态。</p>
         </div>
-
         <div class="status-actions">
-          <span id="overall-badge" class="status-badge status-loading">加载中</span>
-          <button id="refresh-button" class="button secondary" type="button">立即刷新</button>
+          <button id="refresh-button" class="btn btn-outline" type="button">刷新</button>
         </div>
-      </section>
+      </div>
 
-      <section class="stats-grid" id="summary-stats">
-        <article class="stat-card">
-          <span>最后更新</span>
-          <strong id="stat-updated">--</strong>
-        </article>
-        <article class="stat-card">
-          <span>公开服务数</span>
-          <strong id="stat-services">--</strong>
-        </article>
-        <article class="stat-card">
-          <span>平均响应延迟</span>
-          <strong id="stat-latency">--</strong>
-        </article>
-        <article class="stat-card">
-          <span>近 30 天可用率</span>
-          <strong id="stat-uptime">--</strong>
-        </article>
-      </section>
+      <div class="metrics-row">
+        <div class="metric-card"><span>最后探测时间</span><strong id="stat-updated">--</strong></div>
+        <div class="metric-card"><span>公开服务节点</span><strong id="stat-services">--</strong></div>
+        <div class="metric-card"><span>平均响应延迟</span><strong id="stat-latency">--</strong></div>
+        <div class="metric-card"><span>近30天可用率</span><strong id="stat-uptime">--</strong></div>
+      </div>
 
-      <section class="section-heading status-section-heading">
-        <div>
-          <p class="eyebrow">Service Topology</p>
-          <h2>公开服务矩阵</h2>
+      <h2 class="section-title">服务矩阵</h2>
+      <div class="panel">
+        <div id="services-grid">
+          <div style="padding: 24px; text-align: center; color: var(--text-muted);">加载中...</div>
         </div>
-        <small id="api-base-note">Data Source: VoiceLinkVR Platform · public</small>
-      </section>
-      <section id="services-grid" class="service-grid"></section>
+      </div>
 
-      <section class="section-heading status-section-heading">
-        <div>
-          <p class="eyebrow">Incidents</p>
-          <h2>维护与事件记录</h2>
-        </div>
-      </section>
-      <section id="incident-list" class="incident-list"></section>
+      <h2 class="section-title">历史事件</h2>
+      <div class="panel">
+        <div id="incident-list"></div>
+      </div>
     </main>
   </div>
 

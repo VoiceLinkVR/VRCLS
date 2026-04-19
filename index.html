@@ -3,147 +3,161 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta
-    name="description"
-    content="VoiceLinkVR | 专为 VRChat 打造的低延迟实时语音识别与同声传译系统。将多语种字幕无缝投射至虚拟现实，让跨语言交流更自然。"
-  >
   <title>VoiceLinkVR | VRChat 实时翻译引擎</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/site.css">
+  <style>
+    .hero { padding: 120px 0 80px; text-align: center; }
+    .hero-eyebrow { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 20px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 999px; background: rgba(15, 20, 29, 0.75); color: var(--text-soft); font-size: 0.8125rem; }
+    .hero h1 { font-size: clamp(2.75rem, 6vw, 4.8rem); line-height: 1.04; letter-spacing: -0.05em; margin-bottom: 20px; }
+    .text-gradient { background: linear-gradient(135deg, #ffffff 0%, var(--accent) 48%, var(--primary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero .lead { max-width: 760px; margin: 0 auto 36px; color: var(--text-soft); font-size: 1.0625rem; line-height: 1.6;}
+    .hero-actions { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; margin-bottom: 48px; }
+    .hero-actions .btn { height: 48px; padding: 0 28px; font-size: 0.95rem; font-weight: 600; }
+    .hero-meta { display: flex; justify-content: center; gap: 32px; flex-wrap: wrap; color: var(--text-soft); font-size: 0.875rem; }
+    .feature-card { transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease; }
+    .feature-card:hover { transform: translateY(-4px); border-color: var(--border-hover); background: var(--bg-hover); }
+    .feature-card h3 { color: #dce7f8; margin-bottom: 12px;}
+    .guide-section, .cta-section, .benefits-section { padding: 80px 0; border-top: 1px solid var(--border); }
+    .section-head { text-align: center; margin-bottom: 40px; }
+    .section-head h2 { font-size: clamp(2rem, 4vw, 2.8rem); letter-spacing: -0.04em; margin-bottom: 12px; }
+    .section-head p { color: var(--text-soft); max-width: 680px; margin: 0 auto; line-height: 1.6;}
+    .step-card { position: relative; padding-top: 56px; }
+    .step-index { position: absolute; top: 24px; left: 24px; color: var(--accent); font-size: 0.875rem; font-weight: 700; letter-spacing: 0.12em; }
+    .step-card p, .cta-card p, .benefit-card p { color: var(--text-soft); line-height: 1.6;}
+    .cta-card { padding: 36px; text-align: center; }
+    .cta-card h2 { font-size: clamp(2rem, 4vw, 2.8rem); letter-spacing: -0.04em; margin-bottom: 14px; }
+    .cta-actions { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; margin-top: 28px; }
+    .benefit-card { padding: 32px; background: transparent;}
+    .benefit-card h3 { font-size: 1.5rem; margin-bottom: 16px; color: var(--text-main);}
+    @media (max-width: 768px) { .hero { padding: 88px 0 56px; } .guide-section, .cta-section, .benefits-section { padding: 56px 0; } }
+  </style>
 </head>
 <body>
   <div class="page-shell">
     <header class="site-header">
-      <a class="brand" href="#top" aria-label="VoiceLinkVR 首页">
-        <span class="brand-mark">V</span>
-        <span class="brand-text">
-          <strong>VoiceLinkVR</strong>
-          <small>VRChat Translation Engine</small>
-        </span>
+      <a class="brand" href="/">
+        <div class="brand-logo">V</div>
+        VoiceLinkVR
       </a>
-
-      <button class="nav-toggle" type="button" aria-label="切换导航">☰</button>
-
       <nav class="site-nav">
-        <a href="#features">特性介绍</a>
-        <a href="#scenarios">适用场景</a>
-        <a href="status/">系统状态</a>
-        <a href="app/">控制台</a>
-        <a class="nav-cta" href="https://github.com/VoiceLinkVR/VRCLS" target="_blank" rel="noreferrer">免费下载</a>
+        <a href="#features">核心能力</a>
+        <a href="#guide">快速开始</a>
+        <a href="status/">服务状态</a>
+        <a href="https://github.com/VoiceLinkVR/VRCLS" target="_blank" rel="noreferrer">GitHub</a>
+        <a href="app/" class="btn btn-outline">进入控制台</a>
       </nav>
     </header>
 
-    <main id="top">
-      <section class="hero section">
-        <div class="hero-copy">
-          <p class="eyebrow">The Next-Gen VRChat Translation Engine</p>
-          <h1>打破虚拟世界的语言边界</h1>
-          <p class="hero-lead">
-            VRCLS 是一款专为 VRChat 打造的低延迟实时语音识别与同声传译系统。无缝集成原生 OSC，
-            将多语种字幕直接投射至虚拟现实，让全球交友毫无障碍。
-          </p>
-
-          <div class="hero-actions">
-            <a class="button primary" href="app/">进入控制台</a>
-            <a class="button secondary" href="https://github.com/VoiceLinkVR/VRCLS" target="_blank" rel="noreferrer">下载客户端</a>
-          </div>
-
-          <div class="hero-metrics">
-            <article>
-              <strong>毫秒级</strong>
-              <span>低延迟流式识别与翻译链路</span>
-            </article>
-            <article>
-              <strong>20+</strong>
-              <span>支持全球主流语种双向互译</span>
-            </article>
-            <article>
-              <strong>Native OSC</strong>
-              <span>字幕与 Avatar 状态原生投射</span>
-            </article>
-          </div>
+    <main>
+      <section class="hero">
+        <div class="hero-eyebrow">实时识别 · AI 翻译 · VRChat OSC</div>
+        <h1 class="text-gradient">打破虚拟世界的语言边界</h1>
+        <p class="lead">
+          VoiceLinkVR 为 VRChat 提供毫秒级延迟的流式语音转写、跨语言翻译与原生字幕投射能力。
+          告别繁琐的网络配置与窗口切换，让全球多语种无缝交流直接融入你的虚拟现实体验中。
+        </p>
+        <div class="hero-actions">
+          <a href="app/" class="btn btn-primary">立即进入控制台</a>
+          <a href="https://github.com/VoiceLinkVR/VRCLS" target="_blank" rel="noreferrer" class="btn btn-outline">查看客户端项目</a>
         </div>
-
-        <div class="hero-panel glass-card">
-          <div class="terminal-bar">
-            <span></span><span></span><span></span>
-          </div>
-          <div class="terminal-body">
-            <p><span class="prompt">[Link]</span>Establishing encrypted cloud relay...</p>
-            <p><span class="prompt">[Voice]</span>Streaming microphone frames into VAD pipeline.</p>
-            <p><span class="prompt">[ASR-ZH]</span>很高兴在 VRChat 认识你。</p>
-            <p><span class="prompt">[TR-EN]</span>Great to meet you here in VRChat.</p>
-            <p><span class="prompt">[OSC]</span>Broadcasting subtitle payload to Chatbox and Avatar.</p>
-            <p><span class="prompt">[Sync]</span>VoiceLinkVR control plane synchronized.</p>
-          </div>
+        <div class="hero-meta">
+          <span>✔️ 低延迟流式识别</span>
+          <span>✔️ 多语言实时翻译</span>
+          <span>✔️ 原生 OSC 集成</span>
         </div>
       </section>
 
-      <section id="features" class="section">
-        <div class="section-heading">
-          <p class="eyebrow">Features</p>
-          <h2>专为全球 VRChat 玩家打造的实时翻译底座</h2>
-          <p>从拾音、识别、翻译到沉浸式字幕投射，整条链路围绕多人语音社交场景重做，兼顾速度、稳定性与临场感。</p>
-        </div>
-
-        <div class="feature-grid">
-          <article class="card">
+      <section id="features" class="grid-3">
+        <article class="feature-card panel">
+          <div class="panel-body">
             <h3>流式极速识别</h3>
-            <p>搭载专为语音聊天优化的 VAD 检测引擎，开口即识别，告别尴尬的等待时间。</p>
+            <p>基于先进的 VAD 端点检测和流式识别管线，有效消除无效拾音，大幅缩短从你开口说话到字幕弹出的等待时间，带来接近同步的交流体验。</p>
+          </div>
+        </article>
+        <article class="feature-card panel">
+          <div class="panel-body">
+            <h3>多语种即时翻译</h3>
+            <p>内置强劲的云端大模型翻译引擎，覆盖全球主流语种。根据语境自动推断，拒绝机翻感，让不同语言的玩家同处一室也能畅所欲言。</p>
+          </div>
+        </article>
+        <article class="feature-card panel">
+          <div class="panel-body">
+            <h3>沉浸式原生接入</h3>
+            <p>无需外挂窗口，基于原生 VRChat OSC 协议与 Chatbox 直连，字幕将以极具沉浸感的方式浮现在你的角色头顶，与游戏体验浑然一体。</p>
+          </div>
+        </article>
+      </section>
+
+      <section class="benefits-section">
+        <div class="section-head">
+          <h2>为什么选择 VoiceLinkVR</h2>
+          <p>专为 VRChat 和沉浸式跨语言社交量身打造的设计哲学</p>
+        </div>
+        <div class="grid-3">
+          <article class="benefit-card">
+            <h3>云端统一架构</h3>
+            <p>所有高算力消耗的识别与翻译任务都在云端完成，绝不占用你宝贵的本地显卡与 CPU 资源，确保 VRChat 的极高帧率。配置与资产都在云端统一管理，一次登录，多端通用。</p>
           </article>
-          <article class="card">
-            <h3>全球同声传译</h3>
-            <p>依托云端 AI 算力，支持中英日韩等数十种语言双向互译，让你在 Public 房间畅所欲言。</p>
+          <article class="benefit-card">
+            <h3>阶梯式灵活资费</h3>
+            <p>摆脱死板的高昂月费。无论你是偶尔登录社交的轻度玩家，还是日夜活跃在国际局的重度用户，都可以凭借灵活的阶梯档位与临时加油包控制成本。</p>
           </article>
-          <article class="card">
-            <h3>原生沉浸展现</h3>
-            <p>直接对接 VRChat Chatbox 与 Avatar 参数，字幕悬浮于身畔，提供更自然的交流体验。</p>
-          </article>
-          <article class="card">
-            <h3>多端云同步</h3>
-            <p>客户端配置与额度数据云端互通，登录控制台即可随时随地管理翻译配置与账号资源。</p>
+          <article class="benefit-card">
+            <h3>全景数据掌控</h3>
+            <p>对黑盒收费说不。我们在控制台为你提供了精确到个位数的 API 请求监控面板与账单日志，每一分请求去向都一清二楚，帮你优化使用习惯。</p>
           </article>
         </div>
       </section>
 
-      <section id="scenarios" class="section alt-section">
-        <div class="section-heading">
-          <p class="eyebrow">Scenarios</p>
-          <h2>让每一种虚拟社交身份都拥有跨语言交流能力</h2>
+      <section id="guide" class="guide-section">
+        <div class="section-head">
+          <h2>三步开始使用</h2>
+          <p>从注册到账户登录，再到客户端接入和游戏内启用，整个流程保持尽量简单。</p>
         </div>
+        <div class="grid-3" style="margin: 0;">
+          <article class="feature-card panel step-card">
+            <div class="step-index">01</div>
+            <div class="panel-body">
+              <h3>注册控制台账户</h3>
+              <p>进入控制台完成邮箱验证注册，免费领取初始额度，并在账户总览中查看当前服务状态与计费参数。</p>
+            </div>
+          </article>
+          <article class="feature-card panel step-card">
+            <div class="step-index">02</div>
+            <div class="panel-body">
+              <h3>下载并登录客户端</h3>
+              <p>从 GitHub 获取最新的 VRCLS 本地客户端，运行后使用授权码登录，同步你云端的识别与翻译配置。</p>
+            </div>
+          </article>
+          <article class="feature-card panel step-card">
+            <div class="step-index">03</div>
+            <div class="panel-body">
+              <h3>启用 VRChat OSC</h3>
+              <p>在 VRChat 径向菜单中打开 OSC 功能。麦克风说话后，翻译好的字幕就会以 Chatbox 形式呈现在虚拟世界中。</p>
+            </div>
+          </article>
+        </div>
+      </section>
 
-        <div class="scenario-grid">
-          <article class="card">
-            <h3>跨国社交开拓者</h3>
-            <p>在多语言 Public 房间里保持自然对话节奏，快速建立跨文化连接，让陌生房间更容易开口交流。</p>
-          </article>
-          <article class="card">
-            <h3>VTuber 与内容创作者</h3>
-            <p>为直播、录播与联动内容提供实时字幕和双语表达，让内容传播跨越地区限制，扩大观众覆盖面。</p>
-          </article>
-          <article class="card">
-            <h3>无障碍交流守护者</h3>
-            <p>通过清晰稳定的字幕辅助听障沟通、深夜静音交流与嘈杂环境下的表达补偿，让对话更平等、更可达。</p>
-          </article>
+      <section class="cta-section">
+        <div class="panel cta-card">
+          <h2>准备把翻译接入你的 VRChat 工作流了吗？</h2>
+          <p>现在注册即可开启你的跨国虚拟社交之旅。</p>
+          <div class="cta-actions">
+            <a href="app/" class="btn btn-primary">打开控制台</a>
+            <a href="status/" class="btn btn-outline">查看服务状态</a>
+          </div>
         </div>
       </section>
     </main>
 
     <footer class="site-footer">
-      <div>
-        <strong>VoiceLinkVR</strong>
-        <p>为 VRChat 提供稳定的实时语音识别、同声传译与原生 OSC 字幕投射能力。</p>
-      </div>
+      <div>© 2026 VoiceLinkVR</div>
       <div class="footer-links">
-        <a href="app/">进入控制台</a>
-        <a href="status/">系统状态</a>
-        <a href="https://github.com/VoiceLinkVR/VRCLS" target="_blank" rel="noreferrer">下载客户端</a>
+        <a href="status/">服务状态</a>
+        <a href="app/">控制台</a>
       </div>
     </footer>
   </div>
-
-  <script src="assets/js/site.js"></script>
 </body>
 </html>

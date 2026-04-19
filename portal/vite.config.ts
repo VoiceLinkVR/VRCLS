@@ -8,10 +8,8 @@ export default defineConfig({
   plugins: [vue()],
   server: {
     proxy: {
-      '/auth': 'http://127.0.0.1:8980',
-      '/api': 'http://127.0.0.1:8980',
-      '/manageapi': 'http://127.0.0.1:8980',
-      '/ui': 'http://127.0.0.1:8980',
+      '/v1': 'http://127.0.0.1:8980',
+      '/v2': 'http://127.0.0.1:8980',
     },
   },
   resolve: {

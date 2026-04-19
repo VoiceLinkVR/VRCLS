@@ -9,7 +9,7 @@
   "services": [
     {
       "id": "web-api",
-      "name": "公开 API",
+      "name": "公开接口",
       "description": "登录、账户查询与公开翻译网关入口。",
       "status": "operational",
       "region": "CN-HK",

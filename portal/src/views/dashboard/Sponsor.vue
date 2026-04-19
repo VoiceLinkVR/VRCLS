@@ -1,910 +1,573 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { formatCurrency, formatNumber, translateApiError, useI18n } from '../../i18n'
-import { type PortalBillingGuideOption, useUserStore } from '../../stores/user'
-import { formatPlanLabel, translateActionLabel } from '../../utils/portal'
+import { formatCurrency, translateApiError } from '../../i18n'
+import { useUserStore } from '../../stores/user'
+import type { PortalBillingGuideOption, PortalBillingAddonGuide, PortalBillingGuide } from '../../stores/user'
+import { formatPlanLabel } from '../../utils/portal'
 
 const userStore = useUserStore()
-const { t } = useI18n()
-const PRICE_EPSILON = 0.0001
 
 const selectedAction = ref('renew')
 const selectedMonths = ref(1)
-const selectedAmount = ref(0)
-const checkoutError = ref('')
-const checkoutStatus = ref('')
-const checkoutLoading = ref(false)
-const cancelOrderId = ref('')
-const cancelError = ref('')
+const selectedAmount = ref(5)
+const loading = ref(false)
 
-const monthOptions = Array.from({ length: 12 }, (_, index) => index + 1)
-
-const actionCards = computed(() => {
-  const guide = userStore.billingGuide
-  if (guide?.subscriptionMode === 'ladder') {
-    return [
-      {
-        action: 'renew',
-        allowed: guide.allowedActions.some((action) => ['renew', 'upgrade'].includes(action)),
-        title: t('billing.actionLabelAdjust'),
-        body: t('billing.actionDescriptionAdjust'),
-      },
-      {
-        action: 'addon',
-        allowed: guide.allowedActions.includes('addon'),
-        title: translateActionLabel('addon'),
-        body: t('billing.actionDescriptionAddon'),
-      },
-    ]
-  }
-  const orderedActions = ['renew', 'upgrade', 'addon']
-  return orderedActions
-    .filter((action) => guide?.allowedActions.includes(action) || action === 'renew' || action === 'upgrade')
-    .map((action) => ({
-      action,
-      allowed: guide?.allowedActions.includes(action) ?? false,
-      title: translateActionLabel(action),
-      body: t(`billing.actionDescription${action[0].toUpperCase()}${action.slice(1)}`),
-    }))
-})
-
-const isAddonAction = computed(() => selectedAction.value === 'addon')
-
-function mergeLadderOptions(options: Array<PortalBillingGuideOption | null | undefined>): PortalBillingGuideOption | null {
-  const allowedOptions = options.filter((option): option is PortalBillingGuideOption => Boolean(option?.allowed))
-  if (allowedOptions.length === 0) {
-    return null
-  }
-  const minValues = allowedOptions
-    .map((option) => option.minMonthlyPrice ?? option.defaultMonthlyPrice)
-    .filter((value): value is number => typeof value === 'number')
-  const maxValues = allowedOptions
-    .map((option) => option.maxMonthlyPrice ?? option.defaultMonthlyPrice)
-    .filter((value): value is number => typeof value === 'number')
-  const mergedQuotaPreviewByPrice = Object.assign({}, ...allowedOptions.map((option) => option.quotaPreviewByPrice ?? {}))
-  const currentPrice = Number((userStore.currentPlanPrice || 0).toFixed(2))
-  const defaultMonthlyPrice =
-    currentPrice > 0
-      ? currentPrice
-      : (allowedOptions.find((option) => typeof option.defaultMonthlyPrice === 'number')?.defaultMonthlyPrice ?? null)
-
-  return {
-    allowed: true,
-    readonly: minValues.length === 0 || maxValues.length === 0 || Math.abs(Math.max(...maxValues) - Math.min(...minValues)) <= PRICE_EPSILON,
-    pricingMode: 'ladder',
-    defaultMonthlyPrice,
-    minMonthlyPrice: minValues.length > 0 ? Math.min(...minValues) : defaultMonthlyPrice,
-    maxMonthlyPrice: maxValues.length > 0 ? Math.max(...maxValues) : defaultMonthlyPrice,
-    step: allowedOptions.find((option) => typeof option.step === 'number')?.step ?? userStore.billingGuide?.priceStep ?? null,
-    targetResourceQuotaPreview:
-      defaultMonthlyPrice !== null && defaultMonthlyPrice !== undefined
-        ? mergedQuotaPreviewByPrice[defaultMonthlyPrice.toFixed(2)] ?? null
-        : null,
-    priceOptions: [],
-    quotaPreviewByPrice: mergedQuotaPreviewByPrice,
-  }
+const actionLabels: Record<string, string> = {
+  renew: '续费',
+  upgrade: '升级',
+  addon: '资源包',
 }
 
-const currentOption = computed<PortalBillingGuideOption | null>(() => {
+const EPSILON = 0.0001
+
+const actions = computed(() => {
   const guide = userStore.billingGuide
-  if (!guide || isAddonAction.value) {
-    return null
-  }
-  if (guide.subscriptionMode === 'ladder') {
-    return mergeLadderOptions([guide.renewOption, guide.upgradeOption])
-  }
-  return selectedAction.value === 'upgrade' ? guide.upgradeOption : guide.renewOption
+  if (!guide) return []
+  return ['renew', 'upgrade', 'addon'].map((action) => ({
+    id: action,
+    label: actionLabels[action] || action,
+    allowed: guide.allowedActions.includes(action),
+  }))
 })
 
-const currentPricingMode = computed(() => currentOption.value?.pricingMode || userStore.billingGuide?.subscriptionMode || 'fixed_tiers')
+const selectedActionLabel = computed(() => actionLabels[selectedAction.value] || selectedAction.value)
 
-const usesPriceStepper = computed(() => !isAddonAction.value && currentPricingMode.value === 'ladder')
-
-const priceOptions = computed(() => {
-  const option = currentOption.value
-  if (!option) {
-    return []
-  }
-  if (option.priceOptions.length > 0) {
-    return option.priceOptions
-  }
-  if (option.defaultMonthlyPrice !== null && option.defaultMonthlyPrice !== undefined) {
-    return [option.defaultMonthlyPrice]
-  }
-  return []
+const currentOptionConfig = computed(() => {
+  if (selectedAction.value === 'addon') return userStore.billingGuide?.addonOption as PortalBillingAddonGuide | undefined
+  return userStore.billingGuide?.[`${selectedAction.value}Option` as keyof PortalBillingGuide] as PortalBillingGuideOption | undefined
 })
 
-const addonOption = computed(() => userStore.billingGuide?.addonOption ?? null)
+const currentDailyQuota = computed(() => userStore.billingGuide?.displayResourceQuota ?? 0)
+const currentAddonBalance = computed(() => userStore.billingGuide?.addonResourceBalance ?? 0)
 
-const selectedAmountKey = computed(() => selectedAmount.value.toFixed(2))
-
-const quotaPreviewValue = computed(() => {
-  if (isAddonAction.value) {
-    const option = addonOption.value
-    if (!option) {
-      return 0
-    }
-    const step = option.step ?? 5
-    const increment = option.resourceIncrement ?? option.defaultResourceQuotaPreview ?? 0
-    const units = Math.max(1, Math.floor(selectedAmount.value / step))
-    return units * increment
-  }
-
-  const option = currentOption.value
-  if (!option) {
-    return 0
-  }
-  return (
-    option.quotaPreviewByPrice[selectedAmountKey.value] ??
-    option.targetResourceQuotaPreview ??
-    userStore.billingGuide?.displayResourceQuota ??
-    0
-  )
+const amountStep = computed(() => {
+  if (!currentOptionConfig.value) return 5
+  return ('step' in currentOptionConfig.value && currentOptionConfig.value.step) ? currentOptionConfig.value.step : 5
 })
 
-const checkoutAction = computed(() => {
-  if (isAddonAction.value) {
-    return 'addon'
-  }
-  if (currentPricingMode.value !== 'ladder') {
-    return selectedAction.value
-  }
-  const currentPrice = Number((userStore.currentPlanPrice || 0).toFixed(2))
-  if (selectedAmount.value > currentPrice + PRICE_EPSILON) {
-    return 'upgrade'
-  }
-  return 'renew'
+const minAmount = computed(() => {
+  if (!currentOptionConfig.value) return 5
+  if ('minMonthlyPrice' in currentOptionConfig.value && currentOptionConfig.value.minMonthlyPrice) return currentOptionConfig.value.minMonthlyPrice
+  if ('minAmount' in currentOptionConfig.value && currentOptionConfig.value.minAmount) return currentOptionConfig.value.minAmount
+  return amountStep.value
 })
 
-const totalAmount = computed(() => {
-  if (isAddonAction.value) {
-    return selectedAmount.value
-  }
-  if (checkoutAction.value === 'upgrade') {
-    return Math.max(selectedAmount.value - userStore.currentPlanPrice, 0) * selectedMonths.value
-  }
-  return selectedAmount.value * selectedMonths.value
-})
-
-const amountHint = computed(() => {
-  if (isAddonAction.value || usesPriceStepper.value) {
-    return t('billing.warningBody')
-  }
-  return t('billing.amountLockedHint')
-})
-
-const guideSummary = computed(() => {
-  const guide = userStore.billingGuide
-  if (!guide) {
-    return t('common.noData')
-  }
-  if (guide.subscriptionMode === 'ladder') {
-    return t('billing.ruleSummary', {
-      priceStep: formatNumber(guide.priceStep ?? 0),
-      resourceStep: formatNumber(guide.resourceIncrementPerStep ?? 0),
-    })
-  }
-  return t('billing.amountLockedHint')
-})
-
-const previewCards = computed(() => [
-  {
-    title: t('billing.currentPlan'),
-    value: formatPlanLabel(userStore.currentPlanPrice),
-    detail: userStore.billingGuide?.displayPlanName || t('common.noData'),
-  },
-  {
-    title: t('billing.currentQuota'),
-    value: userStore.billingGuide?.displayResourceSummary || `${formatNumber(userStore.remainingQuota)}/day`,
-    detail: t('common.quotaRemaining'),
-  },
-  {
-    title: t('common.totalAmount'),
-    value: formatCurrency(totalAmount.value),
-    detail: isAddonAction.value ? t('common.addon') : `${translateActionLabel(checkoutAction.value)} / ${selectedMonths.value} ${t('common.month')}`,
-  },
-  {
-    title: isAddonAction.value ? t('billing.addonBalance') : t('billing.expectedQuota'),
-    value: isAddonAction.value ? formatNumber(quotaPreviewValue.value) : `${formatNumber(quotaPreviewValue.value)}/day`,
-    detail: t('billing.expectedResourceAfter', { quota: formatNumber(quotaPreviewValue.value) }),
-  },
-])
-
-function resetStatus() {
-  checkoutError.value = ''
-  checkoutStatus.value = ''
+function clampMonths(rawValue: number) {
+  if (!Number.isFinite(rawValue)) return 1
+  return Math.max(1, Math.min(12, Math.trunc(rawValue)))
 }
 
-function clampSubscriptionAmount(value: number, option: PortalBillingGuideOption): number {
-  const min = option.minMonthlyPrice ?? option.defaultMonthlyPrice ?? 0
-  const max = option.maxMonthlyPrice ?? min
-  const step = option.step ?? userStore.billingGuide?.priceStep ?? 5
-  const safeValue = Math.min(Math.max(value, min), max)
-  const snapped = min + Math.round((safeValue - min) / step) * step
-  return Number(Math.min(Math.max(snapped, min), max).toFixed(2))
+function allowedPrices() {
+  const config = currentOptionConfig.value as PortalBillingGuideOption | undefined
+  if (!config || !('priceOptions' in config) || !Array.isArray(config.priceOptions)) {
+    return [] as number[]
+  }
+  return config.priceOptions
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value))
+    .sort((left, right) => left - right)
 }
 
-function clampAddonAmount(value: number): number {
-  const option = addonOption.value
-  if (!option) {
-    return 0
+function snapToNearestPrice(rawValue: number, prices: number[]) {
+  if (!prices.length) {
+    return rawValue
   }
-  const min = option.minAmount ?? option.defaultAmount ?? option.step ?? 5
-  const max = option.maxAmount ?? Number.POSITIVE_INFINITY
-  const step = option.step ?? 5
-  const safeValue = Math.min(Math.max(value, min), max)
-  const snapped = min + Math.round((safeValue - min) / step) * step
-  return Number(Math.min(Math.max(snapped, min), max).toFixed(2))
+  return prices.reduce((best, current) => {
+    const currentDiff = Math.abs(current - rawValue)
+    const bestDiff = Math.abs(best - rawValue)
+    if (currentDiff < bestDiff) return current
+    if (Math.abs(currentDiff - bestDiff) <= EPSILON && current > best) return current
+    return best
+  })
 }
 
-function applyActionDefaults() {
-  const guide = userStore.billingGuide
-  if (!guide) {
-    return
+function normalizeAmount(rawValue: number) {
+  if (!Number.isFinite(rawValue)) {
+    return minAmount.value
   }
 
-  if (guide.subscriptionMode === 'ladder' && selectedAction.value !== 'addon') {
-    selectedAction.value = 'renew'
-  }
-
-  if (!guide.allowedActions.includes(selectedAction.value)) {
-    selectedAction.value = guide.allowedActions[0] || 'renew'
-  }
+  const min = minAmount.value
+  const config = currentOptionConfig.value
+  let normalized = Math.max(rawValue, min)
 
   if (selectedAction.value === 'addon') {
-    selectedMonths.value = 1
-    selectedAmount.value = clampAddonAmount(addonOption.value?.defaultAmount ?? addonOption.value?.minAmount ?? 0)
-    return
+    const addonConfig = config as PortalBillingAddonGuide | undefined
+    const step = amountStep.value || 5
+    const base = addonConfig?.minAmount ?? min
+    const snapped = Math.round((normalized - base) / step) * step + base
+    const max = addonConfig?.maxAmount ?? snapped
+    return Math.min(max, Math.max(base, Number(snapped.toFixed(2))))
   }
 
-  const option = currentOption.value
-  const choices = priceOptions.value
-  if (!option) {
-    selectedAmount.value = 0
-    return
+  const prices = allowedPrices()
+  if (prices.length > 0) {
+    return snapToNearestPrice(normalized, prices)
   }
 
-  if (usesPriceStepper.value) {
-    const defaultAmount = option.defaultMonthlyPrice ?? option.minMonthlyPrice ?? 0
-    selectedAmount.value = clampSubscriptionAmount(defaultAmount, option)
-    return
-  }
-
-  if (choices.length === 0) {
-    selectedAmount.value = 0
-    return
-  }
-
-  const defaultAmount = option.defaultMonthlyPrice ?? choices[0]
-  selectedAmount.value = choices.includes(defaultAmount) ? defaultAmount : choices[0]
+  const optionConfig = config as PortalBillingGuideOption | undefined
+  const step = amountStep.value || 5
+  const base = optionConfig?.minMonthlyPrice ?? min
+  const snapped = Math.round((normalized - base) / step) * step + base
+  const max = optionConfig?.maxMonthlyPrice ?? snapped
+  return Math.min(max, Math.max(base, Number(snapped.toFixed(2))))
 }
 
-function adjustAmount(direction: number) {
-  if (isAddonAction.value) {
-    const step = addonOption.value?.step ?? 5
-    selectedAmount.value = clampAddonAmount(selectedAmount.value + direction * step)
-    return
+function isSelectedAmountValid() {
+  const rawValue = Number(selectedAmount.value)
+  if (!Number.isFinite(rawValue)) return false
+
+  if (selectedAction.value === 'addon') {
+    const addonConfig = currentOptionConfig.value as PortalBillingAddonGuide | undefined
+    const step = amountStep.value || 5
+    const base = addonConfig?.minAmount ?? minAmount.value
+    if (rawValue + EPSILON < base) return false
+    if (addonConfig?.maxAmount != null && rawValue > addonConfig.maxAmount + EPSILON) return false
+    const offset = (rawValue - base) / step
+    return Math.abs(offset - Math.round(offset)) <= EPSILON
   }
 
-  const option = currentOption.value
-  if (!option || !usesPriceStepper.value) {
-    return
+  const prices = allowedPrices()
+  if (prices.length > 0) {
+    return prices.some((price) => Math.abs(price - rawValue) <= EPSILON)
   }
 
-  const step = option.step ?? userStore.billingGuide?.priceStep ?? 5
-  selectedAmount.value = clampSubscriptionAmount(selectedAmount.value + direction * step, option)
+  const optionConfig = currentOptionConfig.value as PortalBillingGuideOption | undefined
+  const step = amountStep.value || 5
+  const base = optionConfig?.minMonthlyPrice ?? minAmount.value
+  if (rawValue + EPSILON < base) return false
+  if (optionConfig?.maxMonthlyPrice != null && rawValue > optionConfig.maxMonthlyPrice + EPSILON) return false
+  const offset = (rawValue - base) / step
+  return Math.abs(offset - Math.round(offset)) <= EPSILON
 }
 
-const canDecreaseAmount = computed(() => {
-  if (isAddonAction.value) {
-    return selectedAmount.value > (addonOption.value?.minAmount ?? addonOption.value?.defaultAmount ?? 0)
+function normalizeMonthsInput() {
+  selectedMonths.value = clampMonths(Number(selectedMonths.value))
+}
+
+function normalizeAmountInput() {
+  selectedAmount.value = normalizeAmount(Number(selectedAmount.value))
+}
+
+const expectedResourceInfo = computed(() => {
+  const guide = userStore.billingGuide
+  if (!guide || !currentOptionConfig.value) return ''
+
+  if (selectedAction.value === 'addon') {
+    const opt = currentOptionConfig.value as PortalBillingAddonGuide
+    const steps = Math.floor(selectedAmount.value / (opt.step || 5))
+    const res = steps * (opt.resourceIncrement || 0)
+    const nextBalance = currentAddonBalance.value + res
+    return `预计新增 ${res} 单位资源包，余额将变为 ${nextBalance} 单位`
+  } else {
+    const opt = currentOptionConfig.value as PortalBillingGuideOption
+    const previewQuota =
+      opt.quotaPreviewByPrice?.[String(selectedAmount.value)] ??
+      opt.quotaPreviewByPrice?.[selectedAmount.value.toFixed(2)]
+    if (previewQuota) {
+      if (selectedAction.value === 'upgrade') {
+        return `日额度将从 ${currentDailyQuota.value} 提升到 ${previewQuota} 单位/日`
+      }
+      return `日额度将保持在 ${previewQuota} 单位/日，并延长 ${selectedMonths.value} 个月`
+    }
+    if (guide.subscriptionMode === 'ladder') {
+      const steps = Math.floor(selectedAmount.value / (guide.priceStep || 5))
+      const totalQuota = steps * (guide.resourceIncrementPerStep || 0)
+      return `预计生效后日额度为 ${totalQuota} 单位/日`
+    }
+    return '请确认最终金额后提交'
   }
-  const option = currentOption.value
-  return Boolean(option && usesPriceStepper.value && selectedAmount.value > (option.minMonthlyPrice ?? 0))
 })
 
-const canIncreaseAmount = computed(() => {
-  if (isAddonAction.value) {
-    const max = addonOption.value?.maxAmount
-    return max === null || max === undefined || selectedAmount.value < max
+const payableAmount = computed(() => {
+  if (selectedAction.value === 'addon') {
+    return Number(selectedAmount.value || 0)
   }
-  const option = currentOption.value
-  if (!option || !usesPriceStepper.value) {
-    return false
+  const months = clampMonths(Number(selectedMonths.value))
+  const targetPrice = Number(selectedAmount.value || 0)
+  const currentPrice = Number(userStore.currentPlanPrice || 0)
+  if (selectedAction.value === 'upgrade') {
+    return Math.max(0, targetPrice - currentPrice) * months
   }
-  const max = option.maxMonthlyPrice
-  return max !== null && max !== undefined ? selectedAmount.value < max : false
+  return targetPrice * months
+})
+
+const payableAmountLabel = computed(() => formatCurrency(payableAmount.value || 0))
+
+const paymentBreakdown = computed(() => {
+  if (selectedAction.value === 'addon') {
+    return `资源包按单次购买计费，本次将支付 ${payableAmountLabel.value}`
+  }
+
+  if (selectedAction.value === 'upgrade') {
+    return `升级按补差计费：(${formatCurrency(selectedAmount.value)} - ${formatCurrency(userStore.currentPlanPrice || 0)}) × ${selectedMonths.value} 个月`
+  }
+
+  return `${formatCurrency(selectedAmount.value)} × ${selectedMonths.value} 个月`
+})
+
+const targetTierLabel = computed(() => {
+  if (selectedAction.value === 'addon') {
+    return `${formatCurrency(selectedAmount.value)} 资源包`
+  }
+  return formatPlanLabel(selectedAmount.value)
+})
+
+const canCheckout = computed(() => {
+  const monthsValid = selectedAction.value === 'addon' || (Number.isInteger(Number(selectedMonths.value)) && Number(selectedMonths.value) >= 1 && Number(selectedMonths.value) <= 12)
+  return !loading.value && !!userStore.billingGuide && monthsValid && isSelectedAmountValid()
 })
 
 watch(
   () => userStore.billingGuide,
-  () => {
-    applyActionDefaults()
+  (guide) => {
+    if (!guide) return
+    const firstAllowed = ['renew', 'upgrade', 'addon'].find((item) => guide.allowedActions.includes(item))
+    if (firstAllowed) {
+      selectedAction.value = firstAllowed
+    }
+    selectedAmount.value = Math.max(userStore.currentPlanPrice || minAmount.value, minAmount.value)
   },
   { immediate: true },
 )
 
-watch(selectedAction, () => {
-  resetStatus()
-  applyActionDefaults()
+watch(selectedAction, (action) => {
+  selectedAmount.value = Math.max(
+    action === 'addon' ? (userStore.billingGuide?.addonOption?.defaultAmount ?? minAmount.value) : (userStore.currentPlanPrice || minAmount.value),
+    minAmount.value
+  )
+  normalizeAmountInput()
 })
 
-watch(selectedMonths, () => {
-  resetStatus()
-})
+function incMonths() {
+  if (selectedMonths.value < 12) selectedMonths.value++
+}
 
-async function createOrder() {
-  const hasSubscriptionSelection = currentOption.value && currentOption.value.allowed && selectedAmount.value > 0
-  const hasAddonSelection = addonOption.value && addonOption.value.allowed && selectedAmount.value > 0
-  if ((!isAddonAction.value && !hasSubscriptionSelection) || (isAddonAction.value && !hasAddonSelection) || !userStore.billingGuide) {
-    return
-  }
+function decMonths() {
+  if (selectedMonths.value > 1) selectedMonths.value--
+}
 
-  checkoutLoading.value = true
-  resetStatus()
+function incAmount() {
+  selectedAmount.value += amountStep.value
+}
 
-  try {
-    await userStore.beginCheckout({
-      action: checkoutAction.value,
-      months: isAddonAction.value ? 1 : selectedMonths.value,
-      targetMonthlyPrice: isAddonAction.value ? undefined : selectedAmount.value,
-      addonAmount: isAddonAction.value ? selectedAmount.value : undefined,
-      guideToken: userStore.billingGuide.guideToken,
-    })
-    checkoutStatus.value = t('billing.opened')
-  } catch (error) {
-    checkoutError.value =
-      error instanceof Error
-        ? translateApiError({ message: error.message }, 'errors.generic')
-        : t('errors.generic')
-  } finally {
-    checkoutLoading.value = false
+function decAmount() {
+  if (selectedAmount.value - amountStep.value >= minAmount.value) {
+    selectedAmount.value -= amountStep.value
+  } else {
+    selectedAmount.value = minAmount.value
   }
 }
 
-async function cancelOrder(orderId: string) {
-  cancelOrderId.value = orderId
-  cancelError.value = ''
+async function checkout() {
+  const originalMonths = Number(selectedMonths.value)
+  const originalAmount = Number(selectedAmount.value)
+  normalizeMonthsInput()
+  normalizeAmountInput()
+  const normalizedMonths = Number(selectedMonths.value)
+  const normalizedAmount = Number(selectedAmount.value)
+
+  if (
+    (selectedAction.value !== 'addon' && originalMonths !== normalizedMonths) ||
+    Math.abs(originalAmount - normalizedAmount) > EPSILON
+  ) {
+    return
+  }
+
+  if (!canCheckout.value) {
+    return
+  }
+  loading.value = true
   try {
-    await userStore.cancelOrder(orderId)
+    await userStore.beginCheckout({
+      action: selectedAction.value,
+      months: selectedAction.value === 'addon' ? 1 : selectedMonths.value,
+      targetMonthlyPrice: selectedAction.value === 'addon' ? undefined : selectedAmount.value,
+      addonAmount: selectedAction.value === 'addon' ? selectedAmount.value : undefined,
+      guideToken: userStore.billingGuide?.guideToken,
+    })
   } catch (error) {
-    cancelError.value =
-      error instanceof Error
-        ? translateApiError({ message: error.message }, 'errors.generic')
-        : t('errors.generic')
+    window.alert(error instanceof Error ? translateApiError({ message: error.message }) : '操作失败，请稍后重试。')
   } finally {
-    cancelOrderId.value = ''
+    loading.value = false
   }
 }
 </script>
 
 <template>
-  <div class="sponsor panel-grid">
-    <section class="hero glass-panel">
-      <div>
-        <p class="hero-tag">{{ t('billing.heroTag') }}</p>
-        <h2 class="text-gradient">{{ t('billing.heroTitle') }}</h2>
-        <p class="hero-copy">
-          {{ t('billing.heroBody') }}
-        </p>
-      </div>
-
-      <div class="hero-highlight glass-panel">
-        <strong>{{ formatNumber(userStore.remainingQuota) }}</strong>
-        <span>{{ t('common.quotaRemaining') }}</span>
-      </div>
-    </section>
-
-    <section class="guide-grid">
-      <article class="guide-card glass-panel">
-        <h3>{{ t('billing.guideTitle') }}</h3>
-        <div class="guide-list">
-          <div>
-            <span>{{ t('billing.currentPlan') }}</span>
-            <strong>{{ formatPlanLabel(userStore.currentPlanPrice) }}</strong>
-          </div>
-          <div>
-            <span>{{ t('billing.currentQuota') }}</span>
-            <strong>{{ userStore.billingGuide?.displayResourceSummary || t('common.noData') }}</strong>
-          </div>
-          <div>
-            <span>{{ t('common.quotaRule') }}</span>
-            <strong>{{ guideSummary }}</strong>
-          </div>
-        </div>
-      </article>
-
-      <article class="guide-card glass-panel">
-        <h3>{{ t('billing.warningTitle') }}</h3>
-        <p class="guide-warning">{{ t('billing.warningBody') }}</p>
-        <p class="guide-warning">{{ t('common.directPayHint') }}</p>
-        <p class="guide-warning">{{ t('billing.calendarMonthHint') }}</p>
-        <p class="guide-hint" v-if="userStore.billingGuide?.anchorReason !== 'current'">
-          {{ t('billing.firstPurchaseHint') }}
-        </p>
-      </article>
-    </section>
-
-    <section class="action-section glass-panel">
-      <div class="section-head">
-        <h3>{{ t('billing.actionTitle') }}</h3>
-      </div>
-      <div class="action-grid">
-        <button
-          v-for="item in actionCards"
-          :key="item.action"
-          type="button"
-          class="action-card"
-          :class="{ active: selectedAction === item.action, disabled: !item.allowed }"
-          :disabled="!item.allowed"
-          @click="selectedAction = item.action"
-        >
-          <strong>{{ item.title }}</strong>
-          <span>{{ item.body }}</span>
-        </button>
-      </div>
-    </section>
-
-    <section class="payment-grid">
-      <article class="payment-card glass-panel">
-        <div class="section-head">
-          <h3>{{ t('billing.priceTitle') }}</h3>
+  <div class="billing-page">
+    <div class="split-grid">
+      <div class="panel flex-1">
+        <div class="panel-header">
+          <h2>配置订阅</h2>
+          <p>选择操作类型、时长与档位。</p>
         </div>
 
-        <div v-if="!isAddonAction" class="field-group">
-          <span class="field-label">{{ t('billing.monthsLabel') }}</span>
-          <div class="month-grid">
-            <button
-              v-for="month in monthOptions"
-              :key="month"
-              type="button"
-              class="month-chip"
-              :class="{ active: selectedMonths === month }"
-              @click="selectedMonths = month"
-            >
-              {{ month }} {{ t('common.month') }}
-            </button>
-          </div>
-        </div>
-
-        <div class="field-group">
-          <span class="field-label">{{ isAddonAction ? t('common.addon') : t('billing.amountLabel') }}</span>
-
-          <div v-if="usesPriceStepper || isAddonAction" class="stepper-box">
-            <div class="stepper-row">
-              <button type="button" class="stepper-btn" :disabled="!canDecreaseAmount" @click="adjustAmount(-1)">-</button>
-              <div class="stepper-value">
-                <strong>{{ formatCurrency(selectedAmount) }}</strong>
-                <small>
-                  {{
-                    isAddonAction ? formatNumber(quotaPreviewValue) : `${formatNumber(quotaPreviewValue)}/day`
-                  }}
-                </small>
-              </div>
-              <button type="button" class="stepper-btn" :disabled="!canIncreaseAmount" @click="adjustAmount(1)">+</button>
+        <div class="panel-body form-grid-single">
+          <div class="input-group">
+            <label>操作类型</label>
+            <div class="radio-group">
+              <label
+                v-for="act in actions"
+                :key="act.id"
+                class="radio-card"
+                :class="{ active: selectedAction === act.id, disabled: !act.allowed }"
+              >
+                <input v-model="selectedAction" type="radio" :value="act.id" :disabled="!act.allowed" class="hidden" />
+                <span>{{ act.label }}</span>
+              </label>
             </div>
           </div>
 
-          <div v-else class="price-grid">
-            <button
-              v-for="price in priceOptions"
-              :key="price"
-              type="button"
-              class="price-chip"
-              :class="{ active: selectedAmount === price }"
-              @click="selectedAmount = price"
-            >
-              <strong>{{ formatCurrency(price) }}</strong>
-              <small>{{ formatNumber(currentOption?.quotaPreviewByPrice[price.toFixed(2)] ?? quotaPreviewValue) }}/day</small>
-            </button>
+          <div class="input-group" v-if="selectedAction !== 'addon'">
+            <label>时长（个月）</label>
+            <div class="number-stepper">
+              <button type="button" class="stepper-btn" @click="decMonths" :disabled="selectedMonths <= 1">−</button>
+              <input v-model.number="selectedMonths" type="number" class="stepper-input" min="1" max="12" step="1" @blur="normalizeMonthsInput" />
+              <button type="button" class="stepper-btn" @click="incMonths" :disabled="selectedMonths >= 12">+</button>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label>档位金额（元）</label>
+            <div class="number-stepper">
+              <button type="button" class="stepper-btn" @click="decAmount" :disabled="selectedAmount <= minAmount">−</button>
+              <input v-model.number="selectedAmount" type="number" class="stepper-input" :step="amountStep" :min="minAmount" @blur="normalizeAmountInput" />
+              <button type="button" class="stepper-btn" @click="incAmount">+</button>
+            </div>
           </div>
         </div>
 
-        <p class="helper-line">{{ amountHint }}</p>
-        <p class="helper-line">{{ t('billing.expectedResourceAfter', { quota: formatNumber(quotaPreviewValue) }) }}</p>
-
-        <div class="action-footer">
-          <p v-if="checkoutError" class="checkout-error">{{ checkoutError }}</p>
-          <p v-else-if="checkoutStatus" class="checkout-status">{{ checkoutStatus }}</p>
-          <button type="button" class="btn btn-primary w-full" :disabled="checkoutLoading || selectedAmount <= 0" @click="createOrder">
-            {{ checkoutLoading ? t('billing.creating') : t('common.goPay') }}
+        <div class="panel-footer">
+          <button class="btn btn-primary" @click="checkout" :disabled="!canCheckout">
+            {{ loading ? '处理中...' : '去结算' }}
           </button>
         </div>
-      </article>
-
-      <article class="preview-card glass-panel">
-        <div class="section-head">
-          <h3>{{ t('billing.previewTitle') }}</h3>
-        </div>
-        <div class="preview-grid">
-          <div v-for="card in previewCards" :key="card.title" class="preview-item">
-            <span>{{ card.title }}</span>
-            <strong>{{ card.value }}</strong>
-            <small>{{ card.detail }}</small>
-          </div>
-        </div>
-      </article>
-    </section>
-
-    <section class="pending-card glass-panel">
-      <div class="section-head">
-        <h3>{{ t('billing.pendingTitle') }}</h3>
-        <router-link to="/orders">{{ t('billing.goOrders') }}</router-link>
       </div>
 
-      <div v-if="cancelError" class="checkout-error">{{ cancelError }}</div>
+      <div class="panel summary-panel">
+        <div class="panel-header">
+          <h2>订单预览</h2>
+          <p>确认您的当前信息与变更预期。</p>
+        </div>
+        <div class="panel-body">
+          <div class="desc-list-local">
+            <div class="desc-row-local">
+              <span class="desc-term-local">当前套餐</span>
+              <span class="desc-detail-local"><strong>{{ formatPlanLabel(userStore.currentPlanPrice) }}</strong></span>
+            </div>
+            <div class="desc-row-local" v-if="userStore.billingGuide?.displayResourceQuota">
+              <span class="desc-term-local">当前额度</span>
+              <span class="desc-detail-local"><strong>{{ userStore.billingGuide.displayResourceQuota }}</strong> 单位/日</span>
+            </div>
+            <div class="desc-row-local" v-if="userStore.billingGuide?.addonResourceBalance">
+              <span class="desc-term-local">加油包余额</span>
+              <span class="desc-detail-local"><strong>{{ userStore.billingGuide.addonResourceBalance }}</strong> 单位</span>
+            </div>
 
-      <div v-if="userStore.pendingOrders.length === 0" class="pending-empty">
-        {{ t('billing.pendingEmpty') }}
-      </div>
+            <div class="divider"></div>
 
-      <div v-else class="pending-list">
-        <div v-for="order in userStore.pendingOrders" :key="order.id" class="pending-item">
-          <div>
-            <strong>{{ translateActionLabel(order.action) }}</strong>
-            <span>{{ formatCurrency(order.amount, order.currency) }}</span>
-          </div>
-          <div class="pending-actions">
-            <button type="button" class="btn btn-outline" @click="userStore.openPaymentUrl(order.payUrl)">
-              {{ t('common.continuePay') }}
-            </button>
-            <button
-              v-if="order.cancellable"
-              type="button"
-              class="btn btn-outline danger-btn"
-              :disabled="cancelOrderId === order.id"
-              @click="cancelOrder(order.id)"
-            >
-              {{ cancelOrderId === order.id ? t('common.loading') : t('common.cancel') }}
-            </button>
+            <div class="desc-row-local">
+              <span class="desc-term-local">所选操作</span>
+              <span class="desc-detail-local highlight">{{ selectedActionLabel }}</span>
+            </div>
+            <div class="desc-row-local" v-if="selectedAction !== 'addon'">
+              <span class="desc-term-local">购买时长</span>
+              <span class="desc-detail-local"><strong>{{ selectedMonths }}</strong> 个月</span>
+            </div>
+            <div class="desc-row-local">
+              <span class="desc-term-local">目标档位</span>
+              <span class="desc-detail-local"><strong>{{ targetTierLabel }}</strong></span>
+            </div>
+            <div class="desc-row-local">
+              <span class="desc-term-local">应付款金额</span>
+              <span class="desc-detail-local"><strong>{{ payableAmountLabel }}</strong></span>
+            </div>
+            <div class="desc-row-local">
+              <span class="desc-term-local">计费说明</span>
+              <span class="desc-detail-local">{{ paymentBreakdown }}</span>
+            </div>
+            <div class="desc-row-local">
+              <span class="desc-term-local">变更预期</span>
+              <span class="desc-detail-local accent-text">{{ expectedResourceInfo }}</span>
+            </div>
+            <div class="payment-warning">
+              <strong>支付提醒</strong>
+              <p>跳转到爱发电后，请不要修改任何金额、月份或档位，否则订单校验会失败，无法自动激活。</p>
+            </div>
           </div>
         </div>
       </div>
-    </section>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.hero {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 24px;
-  padding: 30px;
-  background:
-    radial-gradient(circle at left, rgba(0, 229, 255, 0.12), transparent 30%),
-    rgba(14, 18, 28, 0.84);
-}
+.billing-page { display: flex; flex-direction: column; gap: 32px; }
 
-.hero-tag {
-  color: var(--primary);
-  font-size: 0.82rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-.hero h2 {
-  margin: 12px 0 14px;
-  font-size: clamp(2rem, 4vw, 3rem);
-}
-
-.hero-copy {
-  max-width: 720px;
-  color: var(--text-muted);
-  line-height: 1.9;
-}
-
-.hero-highlight {
-  min-width: 220px;
-  padding: 22px;
-  text-align: center;
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.hero-highlight strong {
-  display: block;
-  font-size: clamp(2rem, 3vw, 2.8rem);
-  color: var(--primary);
-}
-
-.hero-highlight span {
-  color: var(--text-muted);
-}
-
-.guide-grid,
-.payment-grid {
+.split-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr 380px;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .split-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.form-grid-single {
+  display: flex;
+  flex-direction: column;
   gap: 24px;
 }
 
-.guide-card,
-.action-section,
-.pending-card,
-.payment-card,
-.preview-card {
-  padding: 28px;
-}
+.radio-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px; }
+.radio-card { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; text-align: center; cursor: pointer; transition: all 0.2s; color: var(--text-soft); font-size: 0.875rem; font-weight: 500; background: var(--bg-base); }
+.radio-card:hover:not(.disabled) { border-color: var(--border-hover); background: var(--bg-hover); color: var(--text-main); }
+.radio-card.active { border-color: var(--primary); color: var(--primary-invert); background: var(--primary); }
+.radio-card.disabled { opacity: 0.4; cursor: not-allowed; }
+.hidden { display: none; }
 
-.section-head {
+.number-stepper {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  height: 40px;
+  overflow: hidden;
+  transition: border-color 0.2s;
 }
 
-.section-head a {
-  color: var(--primary);
+.number-stepper:focus-within {
+  border-color: var(--accent);
 }
 
-.guide-list {
-  display: grid;
-  gap: 16px;
-}
-
-.guide-list div,
-.preview-item {
-  padding: 16px 18px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.guide-list span,
-.preview-item span,
-.field-label {
-  display: block;
-  margin-bottom: 8px;
-  color: var(--text-muted);
-}
-
-.guide-warning,
-.helper-line {
-  color: var(--text-muted);
-  line-height: 1.8;
-}
-
-.guide-warning + .guide-warning,
-.helper-line + .helper-line {
-  margin-top: 10px;
-}
-
-.guide-hint {
-  margin-top: 16px;
-  color: var(--primary);
-}
-
-.action-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
-}
-
-.action-card {
-  padding: 20px;
-  text-align: left;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+.stepper-btn {
+  background: transparent;
+  border: none;
   color: var(--text-main);
-  cursor: pointer;
-  transition:
-    transform 0.22s ease,
-    border-color 0.22s ease,
-    background 0.22s ease;
-}
-
-.action-card strong {
-  display: block;
-  margin-bottom: 8px;
-}
-
-.action-card span {
-  color: var(--text-muted);
-  line-height: 1.7;
-}
-
-.action-card.active {
-  border-color: var(--border-strong);
-  background: linear-gradient(180deg, rgba(0, 229, 255, 0.12), rgba(157, 78, 221, 0.06));
-  transform: translateY(-4px);
-}
-
-.action-card.disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.field-group + .field-group {
-  margin-top: 22px;
-}
-
-.month-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.month-chip,
-.price-chip,
-.stepper-btn {
-  min-height: 42px;
-  padding: 0 14px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--text-soft);
-  cursor: pointer;
-}
-
-.month-chip.active {
-  color: #000;
-  background: var(--primary);
-  border-color: transparent;
-}
-
-.price-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.price-chip {
-  display: grid;
-  gap: 6px;
-  min-height: 84px;
-  padding: 16px;
-  text-align: left;
-}
-
-.price-chip strong {
-  font-size: 1.15rem;
-}
-
-.price-chip small,
-.stepper-value small {
-  color: var(--text-muted);
-}
-
-.price-chip.active {
-  border-color: var(--primary);
-  background: rgba(0, 229, 255, 0.1);
-}
-
-.stepper-box {
-  padding: 18px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.stepper-row {
-  display: grid;
-  grid-template-columns: 56px minmax(0, 1fr) 56px;
-  gap: 16px;
+  width: 40px;
+  height: 100%;
+  display: flex;
   align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1.25rem;
+  transition: background 0.2s, color 0.2s;
 }
 
-.stepper-btn {
-  font-size: 1.4rem;
-  font-weight: 700;
+.stepper-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
 }
 
 .stepper-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
-.stepper-value {
+.stepper-input {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-main);
   text-align: center;
+  font-size: 0.875rem;
+  font-family: var(--font-mono);
+  outline: none;
+  -moz-appearance: textfield;
 }
 
-.stepper-value strong {
+.stepper-input::-webkit-outer-spin-button,
+.stepper-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 16px 0;
+}
+
+.desc-list-local {
+  display: flex;
+  flex-direction: column;
+}
+
+.desc-row-local {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px 0;
+}
+
+.desc-row-local:first-child {
+  padding-top: 0;
+}
+
+.desc-row-local:last-child {
+  padding-bottom: 0;
+}
+
+.desc-term-local {
+  color: var(--text-soft);
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.desc-detail-local {
+  color: var(--text-main);
+  font-size: 0.875rem;
+  text-align: right;
+  max-width: 65%;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.desc-detail-local strong {
+  font-weight: 600;
+}
+
+.highlight {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.accent-text {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.payment-warning {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 184, 0, 0.22);
+  background: rgba(255, 184, 0, 0.08);
+}
+
+.payment-warning strong {
   display: block;
-  font-size: 1.5rem;
   margin-bottom: 8px;
+  color: var(--text-main);
 }
 
-.preview-grid {
-  display: grid;
-  gap: 14px;
-}
-
-.preview-item strong {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 1.24rem;
-}
-
-.preview-item small {
-  color: var(--text-muted);
+.payment-warning p {
+  margin: 0;
+  color: var(--text-soft);
   line-height: 1.7;
 }
 
-.action-footer {
-  margin-top: 20px;
-  display: grid;
-  gap: 10px;
-}
-
-.checkout-error {
-  color: #ffb4b4;
-}
-
-.checkout-status {
-  color: var(--primary);
-}
-
-.pending-empty {
-  color: var(--text-muted);
-}
-
-.pending-list {
-  display: grid;
-  gap: 14px;
-}
-
-.pending-item {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: center;
-  padding: 18px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.pending-item strong {
-  display: block;
-  margin-bottom: 6px;
-}
-
-.pending-item span {
-  color: var(--text-muted);
-}
-
-.pending-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.danger-btn {
-  border-color: rgba(255, 94, 94, 0.35);
-  color: #ffb4b4;
-}
-
-@media (max-width: 1080px) {
-  .hero,
-  .guide-grid,
-  .payment-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .hero {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
-
-@media (max-width: 820px) {
-  .month-grid,
-  .price-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .stepper-row {
-    grid-template-columns: 48px minmax(0, 1fr) 48px;
-  }
-
-  .pending-item {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .pending-actions {
-    flex-direction: column;
-  }
+.summary-panel .panel-body {
+  padding-top: 24px;
 }
 </style>

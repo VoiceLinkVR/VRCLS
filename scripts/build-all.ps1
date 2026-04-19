@@ -15,15 +15,27 @@ function Invoke-NpmBuild {
     )
 
     if ($Install -or -not (Test-Path (Join-Path $ProjectRoot "node_modules"))) {
-        npm ci
-        if ($LASTEXITCODE -ne 0) {
-            throw "npm ci failed in $ProjectRoot"
+        Write-Host "Installing dependencies in $ProjectRoot..."
+        Push-Location $ProjectRoot
+        try {
+            npm ci
+            if ($LASTEXITCODE -ne 0) {
+                throw "npm ci failed in $ProjectRoot"
+            }
+        } finally {
+            Pop-Location
         }
     }
 
-    npm run build
-    if ($LASTEXITCODE -ne 0) {
-        throw "npm run build failed in $ProjectRoot"
+    Write-Host "Building $ProjectRoot..."
+    Push-Location $ProjectRoot
+    try {
+        npm run build
+        if ($LASTEXITCODE -ne 0) {
+            throw "npm run build failed in $ProjectRoot"
+        }
+    } finally {
+        Pop-Location
     }
 }
 
@@ -32,28 +44,17 @@ if (Test-Path $distRoot) {
 }
 
 New-Item -ItemType Directory -Path $distRoot | Out-Null
-New-Item -ItemType Directory -Path (Join-Path $distRoot "app") | Out-Null
-New-Item -ItemType Directory -Path (Join-Path $distRoot "admin") | Out-Null
-New-Item -ItemType Directory -Path (Join-Path $distRoot "status") | Out-Null
 
-Push-Location $portalRoot
-try {
-    Invoke-NpmBuild -ProjectRoot $portalRoot
-} finally {
-    Pop-Location
-}
-
-Push-Location $adminRoot
-try {
-    Invoke-NpmBuild -ProjectRoot $adminRoot
-} finally {
-    Pop-Location
-}
+Invoke-NpmBuild -ProjectRoot $portalRoot
+Invoke-NpmBuild -ProjectRoot $adminRoot
 
 Copy-Item -LiteralPath (Join-Path $repoRoot "index.html") -Destination (Join-Path $distRoot "index.html")
 Copy-Item -LiteralPath (Join-Path $repoRoot "assets") -Destination (Join-Path $distRoot "assets") -Recurse
-Copy-Item -LiteralPath (Join-Path $repoRoot "status\index.html") -Destination (Join-Path $distRoot "status\index.html")
-Copy-Item -Path (Join-Path $portalRoot "dist\*") -Destination (Join-Path $distRoot "app") -Recurse
-Copy-Item -Path (Join-Path $adminRoot "dist\*") -Destination (Join-Path $distRoot "admin") -Recurse
 
-Write-Host "Built deployable site into $distRoot"
+New-Item -ItemType Directory -Path (Join-Path $distRoot "status") | Out-Null
+Copy-Item -LiteralPath (Join-Path $repoRoot "status\index.html") -Destination (Join-Path $distRoot "status\index.html")
+
+Copy-Item -Path (Join-Path $portalRoot "dist") -Destination (Join-Path $distRoot "app") -Recurse
+Copy-Item -Path (Join-Path $adminRoot "dist") -Destination (Join-Path $distRoot "admin") -Recurse
+
+Write-Host "All sites built successfully into $distRoot"

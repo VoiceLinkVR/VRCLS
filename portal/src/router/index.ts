@@ -6,15 +6,13 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'landing',
-      component: () => import('../views/Landing.vue'),
-      meta: { titleKey: 'route.landing' },
+      redirect: '/auth',
     },
     {
       path: '/auth',
       name: 'auth',
       component: () => import('../views/Auth.vue'),
-      meta: { titleKey: 'route.auth' },
+      meta: { title: '登录' },
     },
     {
       path: '/authorize',
@@ -35,52 +33,50 @@ const router = createRouter({
       meta: { title: '验证邮箱', allowMigration: true },
     },
     {
-      path: '/',
+      path: '/app',
       component: () => import('../layouts/DashboardLayout.vue'),
       children: [
         {
-          path: 'center',
+          path: '/center',
           name: 'center',
           component: () => import('../views/dashboard/UserCenter.vue'),
-          meta: { requiresAuth: true, title: '用户中心', allowMigration: true },
+          meta: { requiresAuth: true, title: '账户设置', allowMigration: true },
         },
         {
-          path: 'overview',
+          path: '/overview',
           name: 'overview',
           component: () => import('../views/dashboard/Overview.vue'),
-          meta: { requiresAuth: true, titleKey: 'route.overview', allowMigration: true },
+          meta: { requiresAuth: true, title: '总览', allowMigration: true },
         },
         {
-          path: 'billing',
+          path: '/billing',
           name: 'billing',
           component: () => import('../views/dashboard/Sponsor.vue'),
-          meta: { requiresAuth: true, titleKey: 'route.billing' },
+          meta: { requiresAuth: true, title: '订阅充值' },
         },
         {
-          path: 'orders',
+          path: '/orders',
           name: 'orders',
           component: () => import('../views/dashboard/Orders.vue'),
-          meta: { requiresAuth: true, titleKey: 'route.orders' },
+          meta: { requiresAuth: true, title: '账单历史' },
         },
         {
-          path: 'usage',
+          path: '/usage',
           name: 'usage',
           component: () => import('../views/dashboard/Usage.vue'),
-          meta: { requiresAuth: true, titleKey: 'route.usage' },
+          meta: { requiresAuth: true, title: '用量监控' },
         },
         {
-          path: 'security',
-          redirect: '/center',
-        },
-        {
-          path: 'email',
-          redirect: '/center',
+          path: '/faq',
+          name: 'faq',
+          component: () => import('../views/dashboard/Faq.vue'),
+          meta: { requiresAuth: true, title: '常见问题', allowMigration: true },
         },
       ],
     },
     {
       path: '/:pathMatch(.*)*',
-      redirect: '/',
+      redirect: '/auth',
     },
   ],
 })
@@ -93,19 +89,11 @@ router.beforeEach(async (to) => {
   }
 
   if (to.meta.requiresAuth && !userStore.isAuthenticated) {
-    return {
-      path: '/auth',
-      query: { redirect: to.fullPath },
-    }
+    return { path: '/auth', query: { redirect: to.fullPath } }
   }
 
   if (to.path === '/auth' && userStore.isAuthenticated) {
-    const redirect = userStore.isMigrationPending
-      ? '/center'
-      : typeof to.query.redirect === 'string'
-        ? to.query.redirect
-        : '/overview'
-    return redirect
+    return userStore.isMigrationPending ? '/center' : (typeof to.query.redirect === 'string' ? to.query.redirect : '/overview')
   }
 
   if (userStore.isAuthenticated && userStore.isMigrationPending && !to.meta.allowMigration) {

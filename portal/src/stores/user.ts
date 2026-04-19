@@ -6,6 +6,7 @@ const API_PREFIX = '/v2'
 const AUTH_API_PREFIX = `${API_PREFIX}/auth`
 const ACCOUNT_API_PREFIX = `${API_PREFIX}/api/account`
 const BILLING_API_PREFIX = `${API_PREFIX}/api/billing`
+const CONTENT_API_PREFIX = `${API_PREFIX}/api/content`
 const MIGRATION_STORAGE_KEY = 'vrcls.portal.migration'
 
 type NullableString = string | null | undefined
@@ -16,8 +17,6 @@ type AuthUser = {
   userUuid?: string | null
   username?: string | null
   email?: string | null
-  display_name?: string | null
-  displayName?: string | null
   email_verified?: boolean | null
   emailVerified?: boolean | null
   is_admin?: boolean | null
@@ -55,8 +54,6 @@ type PortalProfileResponse = {
   username?: string | null
   legacyUsername?: string | null
   legacy_username?: string | null
-  displayName?: string | null
-  display_name?: string | null
   email?: string | null
   emailVerified?: boolean | null
   email_verified?: boolean | null
@@ -125,7 +122,7 @@ export type PortalBillingGuide = {
   allowedActions: string[]
   renewOption: PortalBillingGuideOption
   upgradeOption: PortalBillingGuideOption
-  downgradeOption: PortalBillingGuideOption
+  downgradeOption?: PortalBillingGuideOption | null
   addonOption: PortalBillingAddonGuide
   addonEnabled: boolean
   addonResourceBalance: number
@@ -144,6 +141,26 @@ export type PortalOrder = {
   createdAt: string | null
   payUrl: string
   cancellable: boolean
+}
+
+export type PortalAnnouncementItem = {
+  id: string
+  title: string
+  content: string
+  displayMode: 'banner' | 'modal'
+  showInOverview: boolean
+  sortOrder: number
+  publishedAt: string | null
+  updatedAt: string | null
+}
+
+export type PortalFaqItem = {
+  id: string
+  title: string
+  content: string
+  sortOrder: number
+  publishedAt: string | null
+  updatedAt: string | null
 }
 
 type PortalOrderIntentResponse = {
@@ -183,7 +200,6 @@ export type DeviceAuthorizationRequest = {
   status: string
   expires_at: string
   username: string
-  display_name: string
 }
 
 type DeviceAuthorizationDecisionResponse = {
@@ -208,10 +224,13 @@ export type AccountUsageDailyStat = {
 export type AccountUsage = {
   user_uuid?: string | null
   username: string
-  display_name?: string | null
   is_test_user: boolean
   is_active: boolean
   is_expired: boolean
+  plan_name?: string | null
+  plan_price?: number | null
+  plan_ref?: string | null
+  pricing_mode?: string | null
   expiration_utc: string | null
   remaining_seconds: number | null
   limit_rule: string
@@ -227,6 +246,8 @@ export type AccountUsage = {
   daily_failed_count: number
   daily_rate_limited_count: number
   daily_total_count: number
+  today_success_count: number
+  today_total_count: number
   today_daily_resource_used: number
   today_remaining_daily: number | null
   addon_resource_balance: number
@@ -240,8 +261,8 @@ export type AccountUsage = {
 export type UserProfile = {
   userUuid: string
   shortUserUuid: string
+  username: string
   legacyUsername: string
-  name: string
   email: string
   emailVerified: boolean
   planName: string
@@ -324,6 +345,19 @@ function shortUuid(value: string): string {
   return value.split('-')[0] || value.slice(0, 8)
 }
 
+function formatLimitRuleSummary(limitRule?: NullableString): string {
+  const normalized = pickFirstString(limitRule)
+  if (!normalized) {
+    return ''
+  }
+
+  return normalized
+    .split(';')
+    .map((part) => part.trim())
+    .filter((part) => part && !part.startsWith('plan_id='))
+    .join(' · ')
+}
+
 function resolveUserUuid(payload: { user_uuid?: NullableString; userUuid?: NullableString; id?: string | number | null }): string {
   return pickFirstString(
     payload.user_uuid,
@@ -332,32 +366,18 @@ function resolveUserUuid(payload: { user_uuid?: NullableString; userUuid?: Nulla
   )
 }
 
-function resolveDisplayName(payload: {
-  display_name?: NullableString
-  displayName?: NullableString
-  username?: NullableString
-  user_uuid?: NullableString
-  userUuid?: NullableString
-}): string {
-  const fallbackUuid = resolveUserUuid(payload)
-  return (
-    pickFirstString(payload.display_name, payload.displayName, payload.username) ||
-    (fallbackUuid ? `用户 ${shortUuid(fallbackUuid)}` : 'VoiceLinkVR User')
-  )
-}
-
 function toProfile(
   payload: AuthUser | PortalProfileResponse,
   currentProfile?: UserProfile | null,
 ): UserProfile {
   const userUuid = resolveUserUuid(payload)
-  const legacyUsername = pickFirstString(payload.legacy_username, payload.legacyUsername, payload.username)
+  const legacyUsername = pickFirstString(payload.legacy_username, payload.legacyUsername)
 
   return {
     userUuid,
     shortUserUuid: shortUuid(userUuid),
+    username: pickFirstString(payload.username, currentProfile?.username),
     legacyUsername,
-    name: resolveDisplayName(payload),
     email: pickFirstString(payload.email),
     emailVerified: Boolean(payload.email_verified ?? payload.emailVerified),
     planName: pickFirstString(payload.plan_name, payload.planName, currentProfile?.planName),
@@ -446,7 +466,10 @@ export const useUserStore = defineStore('user', () => {
   const entitlements = ref<PortalEntitlementResponse | null>(null)
   const billingGuide = ref<PortalBillingGuide | null>(null)
   const orders = ref<PortalOrder[]>([])
+  const usageSnapshot = ref<AccountUsage | null>(null)
   const usage = ref<AccountUsage | null>(null)
+  const announcements = ref<PortalAnnouncementItem[]>([])
+  const faqItems = ref<PortalFaqItem[]>([])
   const migrationSession = ref<LegacyMigrationSession | null>(readMigrationSession())
 
   watch(migrationSession, (value) => {
@@ -455,28 +478,34 @@ export const useUserStore = defineStore('user', () => {
 
   const isAuthenticated = computed(() => Boolean(profile.value))
   const isMigrationPending = computed(() => Boolean(profile.value?.migrationRequired || migrationSession.value))
+  const activeUsage = computed(() => usageSnapshot.value ?? usage.value)
   const remainingQuota = computed(() =>
     Math.max(
-      usage.value?.today_remaining_daily ??
-        usage.value?.remaining_daily ??
-        entitlements.value?.remainingQuota ??
+      activeUsage.value?.today_remaining_daily ??
+        activeUsage.value?.remaining_daily ??
         0,
       0,
     ),
   )
-  const dailyLimit = computed(() => Math.max(usage.value?.daily_limit ?? remainingQuota.value, 0))
+  const dailyLimit = computed(() => Math.max(activeUsage.value?.daily_limit ?? 0, 0))
   const usedQuota = computed(() => Math.max(dailyLimit.value - remainingQuota.value, 0))
   const quotaUsagePercent = computed(() =>
     dailyLimit.value > 0 ? Math.min((usedQuota.value / dailyLimit.value) * 100, 100) : 0,
   )
-  const requestSuccess = computed(() => usage.value?.daily_success_count ?? 0)
-  const requestTotal = computed(() => Math.max(usage.value?.daily_total_count ?? requestSuccess.value, 0))
+  const requestSuccess = computed(() => activeUsage.value?.daily_success_count ?? 0)
+  const requestTotal = computed(() => Math.max(activeUsage.value?.daily_total_count ?? requestSuccess.value, 0))
   const requestSuccessPercent = computed(() =>
     requestTotal.value > 0 ? Math.min((requestSuccess.value / requestTotal.value) * 100, 100) : 0,
   )
   const shouldUpgrade = computed(() => dailyLimit.value > 0 && remainingQuota.value / dailyLimit.value <= 0.2)
   const currentPlanPrice = computed(
-    () => profile.value?.planPrice || billingGuide.value?.displayMonthlyPrice || entitlements.value?.planPrice || 0,
+    () =>
+      activeUsage.value?.plan_price ||
+      profile.value?.planPrice ||
+      0,
+  )
+  const currentLimitSummary = computed(
+    () => formatLimitRuleSummary(activeUsage.value?.limit_rule) || '',
   )
   const pendingOrders = computed(() =>
     orders.value.filter((order) => order.status === 'pending' && Boolean(order.payUrl)),
@@ -491,7 +520,10 @@ export const useUserStore = defineStore('user', () => {
     entitlements.value = null
     billingGuide.value = null
     orders.value = []
+    usageSnapshot.value = null
     usage.value = null
+    announcements.value = []
+    faqItems.value = []
     authError.value = ''
   }
 
@@ -514,6 +546,23 @@ export const useUserStore = defineStore('user', () => {
     usage.value = await requestJson<AccountUsage>(`${ACCOUNT_API_PREFIX}/usage${suffix}`)
   }
 
+  async function loadUsageSnapshot() {
+    const todayUtc = new Date().toISOString().slice(0, 10)
+    const search = new URLSearchParams({
+      start_date: todayUtc,
+      end_date: todayUtc,
+    })
+    usageSnapshot.value = await requestJson<AccountUsage>(`${ACCOUNT_API_PREFIX}/usage?${search.toString()}`)
+  }
+
+  async function loadAnnouncements() {
+    announcements.value = await requestJson<PortalAnnouncementItem[]>(`${CONTENT_API_PREFIX}/announcements`)
+  }
+
+  async function loadFaqItems() {
+    faqItems.value = await requestJson<PortalFaqItem[]>(`${CONTENT_API_PREFIX}/faqs`)
+  }
+
   async function loadPortalData() {
     if (!profile.value) {
       return
@@ -532,9 +581,21 @@ export const useUserStore = defineStore('user', () => {
     orders.value = nextOrders
 
     try {
+      await loadUsageSnapshot()
+    } catch {
+      usageSnapshot.value = null
+    }
+
+    try {
       await loadUsage()
     } catch {
       usage.value = null
+    }
+
+    try {
+      await loadAnnouncements()
+    } catch {
+      announcements.value = []
     }
   }
 
@@ -658,7 +719,7 @@ export const useUserStore = defineStore('user', () => {
     await loadPortalData()
   }
 
-  async function updateProfile(payload: { displayName?: string }) {
+  async function updateProfile(payload: { username?: string }) {
     const response = await requestJson<PortalProfileResponse>(`${ACCOUNT_API_PREFIX}/profile`, {
       method: 'PATCH',
       body: JSON.stringify(payload),
@@ -783,21 +844,26 @@ export const useUserStore = defineStore('user', () => {
     cancelOrder,
     changePasswordWithCode,
     clearMigrationSession,
+    currentLimitSummary,
     currentPlanPrice,
     dailyLimit,
     decideDeviceAuthorization,
     entitlements,
+    faqItems,
     forgotPassword,
     initialized,
     isAuthenticated,
     isMigrationPending,
     legacyLink,
     legacyLogin,
+    loadAnnouncements,
     loadDeviceAuthorization,
+    loadFaqItems,
     loading,
     login,
     logout,
     migrationSession,
+    announcements,
     openPaymentUrl,
     orders,
     pendingOrders,
@@ -815,7 +881,9 @@ export const useUserStore = defineStore('user', () => {
     shouldUpgrade,
     usedQuota,
     updateProfile,
+    usageSnapshot,
     usage,
+    loadUsageSnapshot,
     loadUsage,
     verifyEmail,
   }
