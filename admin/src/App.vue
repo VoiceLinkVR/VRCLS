@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import ContentManagementTab from './components/ContentManagementTab.vue'
 
 type NoticeKind = 'info' | 'success' | 'error'
@@ -228,9 +228,7 @@ function emptyUserForm() {
 function emptyEntitlementForm() {
   return {
     plan_price: '',
-    daily_quota: '',
     pricing_mode: 'fixed_tiers',
-    plan_ref: '',
     subscription_status: 'active',
     subscription_expires_at: '',
     rate_limit_rule: '',
@@ -340,6 +338,40 @@ function userQuotaLabel(user: UserRecord) {
     return `${user.daily_quota}/day`
   }
   return '-'
+}
+
+function isFutureDate(value: string | null | undefined) {
+  if (!value) {
+    return false
+  }
+  const date = new Date(value)
+  return !Number.isNaN(date.getTime()) && date.getTime() > Date.now()
+}
+
+function rateLimitSegments(rule: string | null | undefined) {
+  return (rule || '')
+    .split(';')
+    .map((segment) => segment.trim())
+    .filter((segment) => {
+      return segment && !/^plan_id\s*=/i.test(segment) && !/^\d+\s*\/\s*day$/i.test(segment)
+    })
+}
+
+function userRateLimitLabel(user: UserRecord) {
+  const explicitRule = rateLimitSegments(user.rate_limit_rule)
+  if (explicitRule.length > 0) {
+    return explicitRule.join(' · ')
+  }
+
+  if (isFutureDate(user.boost_expiration_date)) {
+    const boostRule = rateLimitSegments(user.boost_limit_rule)
+    if (boostRule.length > 0) {
+      return `${boostRule.join(' · ')} 临时`
+    }
+  }
+
+  const baseRule = rateLimitSegments(user.limit_rule)
+  return baseRule.length > 0 ? baseRule.join(' · ') : '-'
 }
 
 function syncConfigDraft(item: SiteConfigItem | null) {
@@ -495,9 +527,7 @@ function applyUserToForm(target: ReturnType<typeof emptyUserForm>, user: UserRec
 
 function applyEntitlementToForm(user: UserRecord) {
   entitlementForm.plan_price = user.plan_price == null ? '' : String(user.plan_price)
-  entitlementForm.daily_quota = user.daily_quota == null ? '' : String(user.daily_quota)
   entitlementForm.pricing_mode = user.pricing_mode || 'fixed_tiers'
-  entitlementForm.plan_ref = user.plan_ref || ''
   entitlementForm.subscription_status = (user.plan_price ?? 0) <= 0 ? 'free' : (user.is_active ? 'active' : 'inactive')
   entitlementForm.subscription_expires_at = toDateInput(user.expiration_date)
   entitlementForm.rate_limit_rule = user.rate_limit_rule || ''
@@ -511,6 +541,72 @@ function applyEntitlementToForm(user: UserRecord) {
 function resetEntitlementForm() {
   Object.assign(entitlementForm, emptyEntitlementForm())
 }
+
+function normalizedFormValue(value: unknown): string {
+  if (value === null || value === undefined) {
+    return ''
+  }
+  return String(value).trim()
+}
+
+function numericDraftChanged(value: unknown, current: number | null | undefined, decimals = 2): boolean {
+  const normalized = normalizedFormValue(value)
+  if (!normalized) {
+    return false
+  }
+  const next = Number(normalized)
+  if (!Number.isFinite(next)) {
+    return false
+  }
+  if (current === null || current === undefined) {
+    return true
+  }
+  const factor = 10 ** decimals
+  return Math.round(next * factor) !== Math.round(Number(current) * factor)
+}
+
+function stringDraftChanged(value: unknown, current: unknown): boolean {
+  return normalizedFormValue(value) !== normalizedFormValue(current)
+}
+
+const hasPaidLikeEntitlementDraft = computed(() => {
+  const planPrice = Number(normalizedFormValue(entitlementForm.plan_price) || 0)
+  return planPrice > 0
+})
+
+watch(
+  () => entitlementForm.reset_to_free,
+  (resetToFree) => {
+    if (resetToFree) {
+      entitlementForm.subscription_status = 'free'
+      entitlementForm.pricing_mode = 'free'
+      entitlementForm.subscription_expires_at = ''
+      return
+    }
+
+    if (entitlementForm.subscription_status === 'free') {
+      entitlementForm.subscription_status = 'active'
+    }
+    if (entitlementForm.pricing_mode === 'free') {
+      entitlementForm.pricing_mode = billingSubscriptionMode.value
+    }
+  },
+)
+
+watch(
+  hasPaidLikeEntitlementDraft,
+  (hasPaidLike) => {
+    if (!hasPaidLike || entitlementForm.reset_to_free) {
+      return
+    }
+    if (entitlementForm.subscription_status === 'free') {
+      entitlementForm.subscription_status = 'active'
+    }
+    if (entitlementForm.pricing_mode === 'free') {
+      entitlementForm.pricing_mode = billingSubscriptionMode.value
+    }
+  },
+)
 
 async function refreshDashboard() {
   dashboard.value = await requestJson<DashboardPayload>(`${ADMIN_API_PREFIX}/dashboard/summary`)
@@ -543,13 +639,11 @@ async function refreshConfigs() {
 }
 
 async function refreshAll() {
-  await Promise.all([
-    refreshDashboard(),
-    refreshUsers(),
-    refreshOrders(),
-    refreshStats(selectedStatsHour.value || undefined),
-    refreshConfigs(),
-  ])
+  await refreshDashboard()
+  await refreshUsers()
+  await refreshOrders()
+  await refreshStats(selectedStatsHour.value || undefined)
+  await refreshConfigs()
 }
 
 async function loadUserDetail(id: string) {
@@ -712,21 +806,48 @@ async function handleDeleteUser(id: string) {
 }
 
 function buildEntitlementPayload() {
+  const shouldPromoteToPaid = !entitlementForm.reset_to_free && hasPaidLikeEntitlementDraft.value
   const payload: Record<string, unknown> = {
     clear_addon: entitlementForm.clear_addon,
     reset_to_free: entitlementForm.reset_to_free,
   }
 
-  if (entitlementForm.plan_price.trim()) payload.plan_price = Number(entitlementForm.plan_price)
-  if (entitlementForm.daily_quota.trim()) payload.daily_quota = Number(entitlementForm.daily_quota)
-  if (entitlementForm.pricing_mode.trim()) payload.pricing_mode = entitlementForm.pricing_mode
-  if (entitlementForm.plan_ref.trim()) payload.plan_ref = entitlementForm.plan_ref.trim()
-  if (entitlementForm.subscription_status.trim()) payload.subscription_status = entitlementForm.subscription_status
-  if (entitlementForm.subscription_expires_at.trim()) payload.subscription_expires_at = entitlementForm.subscription_expires_at
-  if (entitlementForm.rate_limit_rule.trim()) payload.rate_limit_rule = entitlementForm.rate_limit_rule.trim()
-  if (entitlementForm.addon_balance.trim()) payload.addon_balance = Number(entitlementForm.addon_balance)
-  if (entitlementForm.addon_total_purchased.trim()) payload.addon_total_purchased = Number(entitlementForm.addon_total_purchased)
-  if (entitlementForm.addon_expires_at.trim()) payload.addon_expires_at = entitlementForm.addon_expires_at
+  const planPrice = normalizedFormValue(entitlementForm.plan_price)
+  const pricingMode = normalizedFormValue(entitlementForm.pricing_mode)
+  const subscriptionStatus = normalizedFormValue(entitlementForm.subscription_status)
+  const subscriptionExpiresAt = normalizedFormValue(entitlementForm.subscription_expires_at)
+  const rateLimitRule = normalizedFormValue(entitlementForm.rate_limit_rule)
+  const addonBalance = normalizedFormValue(entitlementForm.addon_balance)
+  const addonTotalPurchased = normalizedFormValue(entitlementForm.addon_total_purchased)
+  const addonExpiresAt = normalizedFormValue(entitlementForm.addon_expires_at)
+  const currentUser = userDetail.value?.user
+  const planPriceChanged = numericDraftChanged(entitlementForm.plan_price, currentUser?.plan_price, 2)
+  const currentPricingMode = currentUser?.pricing_mode || 'fixed_tiers'
+  const currentSubscriptionStatus = (currentUser?.plan_price ?? 0) <= 0 ? 'free' : (currentUser?.is_active ? 'active' : 'inactive')
+  const subscriptionStatusChanged = stringDraftChanged(subscriptionStatus, currentSubscriptionStatus)
+  const pricingModeChanged = stringDraftChanged(pricingMode, currentPricingMode)
+  const subscriptionExpiresAtChanged = stringDraftChanged(subscriptionExpiresAt, toDateInput(currentUser?.expiration_date))
+  const rateLimitRuleChanged = stringDraftChanged(rateLimitRule, currentUser?.rate_limit_rule)
+  const addonBalanceChanged = numericDraftChanged(entitlementForm.addon_balance, currentUser?.addon_resource_balance, 0)
+  const addonTotalPurchasedChanged = numericDraftChanged(entitlementForm.addon_total_purchased, currentUser?.addon_resource_total, 0)
+  const addonExpiresAtChanged = stringDraftChanged(addonExpiresAt, toDateInput(currentUser?.addon_expiration_date))
+
+  if (entitlementForm.reset_to_free) {
+    return payload
+  }
+
+  if (planPrice && planPriceChanged) payload.plan_price = Number(planPrice)
+  if (pricingMode && (pricingModeChanged || shouldPromoteToPaid)) {
+    payload.pricing_mode = shouldPromoteToPaid && pricingMode === 'free' ? billingSubscriptionMode.value : pricingMode
+  }
+  if (subscriptionStatus && (subscriptionStatusChanged || shouldPromoteToPaid)) {
+    payload.subscription_status = shouldPromoteToPaid && subscriptionStatus === 'free' ? 'active' : subscriptionStatus
+  }
+  if (subscriptionExpiresAt && subscriptionExpiresAtChanged) payload.subscription_expires_at = subscriptionExpiresAt
+  if (rateLimitRuleChanged) payload.rate_limit_rule = rateLimitRule
+  if (addonBalance && addonBalanceChanged) payload.addon_balance = Number(addonBalance)
+  if (addonTotalPurchased && addonTotalPurchasedChanged) payload.addon_total_purchased = Number(addonTotalPurchased)
+  if (addonExpiresAt && addonExpiresAtChanged) payload.addon_expires_at = addonExpiresAt
 
   return payload
 }
@@ -972,6 +1093,10 @@ onMounted(() => {
             <input v-model="loginForm.password" class="input-field" type="password" required />
           </label>
           <button class="btn btn-primary" :disabled="busy" type="submit">登录</button>
+          <p class="muted auth-helper">
+            忘记密码？如果管理员账号已经绑定并验证邮箱，可前往
+            <a class="inline-link" href="/app/reset-password">用户控制台重置密码</a>。
+          </p>
         </form>
       </section>
     </template>
@@ -1015,12 +1140,13 @@ onMounted(() => {
             <section class="glass-panel panel-section">
               <div class="section-head"><h2>最近用户</h2><button class="btn btn-ghost" :disabled="busy" @click="refreshDashboard">刷新</button></div>
               <table class="data-table">
-                <thead><tr><th>用户</th><th>角色</th><th>状态</th><th>最近登录</th></tr></thead>
+                <thead><tr><th>用户</th><th>角色</th><th>状态</th><th>额度 / 限速</th><th>最近登录</th></tr></thead>
                 <tbody>
                   <tr v-for="user in dashboard?.latest_users ?? []" :key="user.id">
                     <td><strong>{{ user.username }}</strong><span>{{ user.email || '-' }}</span></td>
                     <td>{{ user.is_admin ? '管理员' : '普通用户' }}</td>
                     <td>{{ user.is_active ? '启用' : '停用' }}</td>
+                    <td><strong>{{ userQuotaLabel(user) }}</strong><span>{{ userRateLimitLabel(user) }}</span></td>
                     <td>{{ formatDate(user.last_login_at) }}</td>
                   </tr>
                 </tbody>
@@ -1091,11 +1217,10 @@ onMounted(() => {
             </div>
             <div class="mini-card section-note">
               <strong>人工处理入口</strong>
-              <span>用于修正套餐价格、日额度、到期时间、加油包余额等错误数据。付费用户已不再实际限速，`rate_limit_rule` 一般只对免费/测试用户有意义。</span>
+              <span>用于修正套餐价格、到期时间、加油包余额等错误数据。付费用户已不再实际限速，`rate_limit_rule` 一般只对免费/测试用户有意义。</span>
             </div>
             <div class="form-grid">
               <label><span>套餐月价</span><input v-model.trim="entitlementForm.plan_price" class="input-field" type="number" min="0" step="0.01" :disabled="!selectedUserId" /></label>
-              <label><span>日额度</span><input v-model.trim="entitlementForm.daily_quota" class="input-field" type="number" min="0" step="1" :disabled="!selectedUserId" /></label>
               <label>
                 <span>计费模式</span>
                 <select v-model="entitlementForm.pricing_mode" class="input-field" :disabled="!selectedUserId">
@@ -1104,7 +1229,6 @@ onMounted(() => {
                   <option value="ladder">ladder</option>
                 </select>
               </label>
-              <label><span>套餐标识</span><input v-model.trim="entitlementForm.plan_ref" class="input-field" :disabled="!selectedUserId" /></label>
               <label>
                 <span>订阅状态</span>
                 <select v-model="entitlementForm.subscription_status" class="input-field" :disabled="!selectedUserId">
@@ -1129,13 +1253,14 @@ onMounted(() => {
           <section class="glass-panel panel-section config-list-panel">
             <div class="section-head"><h2>用户列表</h2><button class="btn btn-ghost" :disabled="busy" @click="refreshUsers">刷新</button></div>
             <table class="data-table">
-              <thead><tr><th>用户</th><th>角色</th><th>状态</th><th>当前额度</th><th>订单数</th><th>操作</th></tr></thead>
+              <thead><tr><th>用户</th><th>角色</th><th>状态</th><th>当前额度</th><th>限速</th><th>订单数</th><th>操作</th></tr></thead>
               <tbody>
                 <tr v-for="user in usersPayload?.items ?? []" :key="user.id" :class="{ selected: selectedUserId === user.id }">
                   <td><strong>{{ user.username }}</strong><span>{{ user.email || '-' }}</span></td>
                   <td>{{ user.is_admin ? '管理员' : '普通用户' }}</td>
                   <td>{{ user.is_active ? '启用' : '停用' }}</td>
                   <td>{{ userQuotaLabel(user) }}</td>
+                  <td>{{ userRateLimitLabel(user) }}</td>
                   <td>{{ user.afdian_summary.order_count }}</td>
                   <td class="actions-cell">
                     <button class="btn btn-ghost" :disabled="busy" @click="loadUserDetail(user.id)">打开</button>

@@ -165,6 +165,22 @@ code,
   padding: 24px;
 }
 
+.auth-helper {
+  margin-top: 14px;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.inline-link {
+  color: var(--primary-hover);
+  text-decoration: none;
+}
+
+.inline-link:hover {
+  color: var(--text-main);
+  text-decoration: underline;
+}
+
 .panel-footer {
   padding: 16px 24px;
   border-top: 1px solid var(--border);
