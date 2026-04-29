@@ -1,0 +1,56 @@
+# VRCLS-CSharp 开发说明（当前状态）
+
+## 模块结构
+- **01.VRCLS.Core**：基础模型与接口  
+  - `AppConfig` 配置模型（鉴权、音频、翻译、TTS、OSC 等）。  
+  - 接口：`IAudioService`、`IVadService`、`IRecognitionService`、`ITranslationService`、`ITtsService`、`IModelPathResolver` 等。  
+  - 模型：`TranscriptionResult`（原文/多译文/语种/来源）、`LogItem`、`UserInfo` 等。
+- **02.VRCLS.Services**：核心服务实现  
+  - 音频：`AudioCaptureService`（NAudio 录音/环回）、`AudioPipelineService`（捕获→VAD→识别，事件透传音量/说话态/结果）、`AudioPipelineFactory`（按配置选择本地 Sherpa 或远端 API）。  
+  - VAD：`VadService`（SherpaOnnx Silero VAD，16k 单声道）。  
+  - 识别：`FastApiRecognitionService`（服务端 /api/login + /api/func/multitranslateToOtherLanguage，Opus 打包）、`SherpaAsrService`（本地 SherpaOnnx）。  
+  - 翻译：`ServerTranslationService`（/api/func/webtranslate 优先，回退 multitranslate）。  
+  - TTS：`SystemSpeechTtsService`（反射加载 System.Speech，不可用时降级）。  
+  - OSC：`OscService`（VRChat OSC 协议，发送 Chatbox/Avatar/Input）。  
+  - 路径解析：`ModelPathResolver`（查找 VAD/Sherpa 模型路径）。
+- **03.VRCLS.UI**：WPF 前端（MVVM）  
+  - 入口：`App.xaml.cs`（DI 注册 Config/Services/ViewModels，启动 `MainWindow`）。  
+  - 视图：`MainWindow`（透明 overlay：Mic/Desk 开关、说话态灯、音量条、实时列表）；`SettingsWindow` + `SettingsView`（分页设置：鉴权/IP、音频、翻译、OSC、TTS、外观等）。  
+  - ViewModel：`MainViewModel`（双路管线、日志、转写列表、Chatbox、TTS/复制）、`SettingsViewModel`（绑定 AppConfig，可测试登录）、`TranscriptItem` 等。  
+  - 转换器：音量/状态/来源颜色等。
+- **tests**：  
+  - `VRCLS.ConsoleTest`：早期链路测试。  
+  - `VRCLS.BackendSmoke`：可配置的后端冒烟测试（登录/识别发送/翻译/OSC/TTS 开关）。
+
+## 关键流程
+- **启动**：`App` 加载 `%AppData%/VRCLS/config.json`，构建 DI，注入配置与服务，展示 `MainWindow`。
+- **双路音频**：`AudioPipelineFactory` 创建 Mic/Desk 管线：`AudioCaptureService` → `VadService` → `FastApiRecognitionService`（或 `SherpaAsrService`）。`MainViewModel` 订阅 `TextRecognized`/音量/说话态更新 UI。
+- **识别/翻译**：服务端返回多译文会填充 `TranscriptionResult`; 本地识别无译文时 `MainViewModel` 调用 `ITranslationService` 补译。  
+- **Chatbox/OSC**：识别结果按 `VrcChatboxFormatNew` 模板组装（占位符 `{text}/{translatedText1-3}` 去空行）并通过 `OscService` 发送 Chatbox；OSC 端口/IP 在配置中设置。  
+- **TTS**：若 `TtsToggle` 打开，识别/翻译后调用 `ITtsService.SpeakAsync` 播报；System.Speech 缺失时降级为无声。
+- **配置读写**：App 退出时持久化 `AppConfig`；`SettingsViewModel` 双向绑定 AppConfig 字段（用户名/密码/IP/端口/翻译语种/OSC/TTS 等），测试连接按钮调用 `/api/login`（使用 BaseUrl 或 IP+端口）。
+
+## 配置要点（AppConfig 常用字段）
+- 鉴权：`UserInfo.Username/Password`，后端地址优先 `BaseUrl`（自动补 `/api/`），`ApiIp/ApiPort` 仅兼容旧配置。  
+- 识别模式：`recognitionMode` = `remote`/`local`，`vadModelPath`，`sherpaModelDir`。  
+- 翻译：`SourceLanguage`，`TargetTranslationLanguage/2/3`，`TranslationServer`。  
+- TTS：`TtsToggle`（0/1），`TtsOutputName`。  
+- OSC/Chatbox：`OscIp`，`OscPort`，`VrcChatboxFormatNew`，`ChatboxOscMixTemplate`，`EnableOscServer`。  
+- UI/外观：`DarkMode`，`TransparentWindow`，`OverlayWidth/Height` 等。
+
+## 路径与模型
+- VAD 模型：`models/silero_vad.onnx`（仓库 /02.VRCLS.Services/models 或 tests/ConsoleTest/models）。`ModelPathResolver` 会自动搜索。  
+- Sherpa 模型：`sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20` 等，目录可通过 `sherpaModelDir` 指定。  
+- 配置文件：`%AppData%/VRCLS/config.json`（可被 Settings 界面或冒烟脚本读取）。
+
+## 常用命令
+- 构建 UI：`dotnet build 03.VRCLS.UI/03.VRCLS.UI.csproj`
+- 运行冒烟测试（可选参数 login/recognition/translation/osc/tts）：  
+  `dotnet run --project tests/VRCLS.BackendSmoke/VRCLS.BackendSmoke.csproj -- config=PATH`
+- 运行 UI：在 VS 或 `dotnet run --project 03.VRCLS.UI/03.VRCLS.UI.csproj`
+
+## 开发提示
+- UI 已 MVVM 化，新增交互尽量通过绑定和命令，避免 code-behind。
+- 若系统无 System.Speech，TTS 会静默降级；可替换为其他 `ITtsService` 实现（如 EdgeTTS）。
+- OSC 使用 VRChat OSC 协议库 `VRCOscLib`，发送 Chatbox 直接调用 `IOscService.SendChatbox`。
+- 识别管线默认远端 API，local 模式需要 Sherpa 模型可用，否则工厂将日志提示并回退远端。

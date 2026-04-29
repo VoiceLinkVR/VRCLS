@@ -1,0 +1,150 @@
+<UserControl x:Class="VRCLS.UI.Views.SettingsTabs.UpdateTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  Padding="28">
+        <StackPanel Width="{Binding RelativeSource={RelativeSource AncestorType=ScrollViewer}, Path=ViewportWidth}"
+                    MaxWidth="1120">
+            <TextBlock Text="{DynamicResource 'Update Center'}"
+                       Style="{StaticResource MaterialDesignHeadline5TextBlock}"/>
+            <TextBlock Text="应用更新、模型包和翻译配置都放在这里，但每一块只先显示状态与主操作。"
+                       Margin="0,8,0,22"
+                       FontSize="13"
+                       Opacity="0.68"
+                       TextWrapping="Wrap"/>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource 'Application'}"
+                               Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                    <TextBlock Text="先查看当前安装版本，再决定是否下载并安装更新。"
+                               Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+
+                    <TextBlock Margin="0,18,0,4">
+                        <Run Text="{DynamicResource 'Current Version:'}"/>
+                        <Run Text=" "/>
+                        <Run Text="{Binding AppVersion, Mode=OneWay}"/>
+                    </TextBlock>
+                    <TextBlock Text="{Binding UpdateStatusText}"
+                               FontSize="12"
+                               Opacity="0.7"
+                               Margin="0,0,0,10"/>
+                    <ProgressBar Value="{Binding UpdateProgress, Mode=OneWay}"
+                                 Maximum="100"
+                                 Height="6"
+                                 Margin="0,0,0,14"/>
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="{DynamicResource 'Check'}"
+                                Command="{Binding CheckAppUpdateCommand}"
+                                Style="{StaticResource MaterialDesignOutlinedButton}"
+                                Margin="0,0,10,0"/>
+                        <Button Content="{Binding AppUpdateActionText}"
+                                Command="{Binding ExecuteAppUpdateActionCommand}"
+                                Style="{StaticResource MaterialDesignRaisedButton}"/>
+                    </StackPanel>
+                </StackPanel>
+            </materialDesign:Card>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,14">
+                        <StackPanel DockPanel.Dock="Left">
+                            <TextBlock Text="{DynamicResource 'Model Packages'}"
+                                       Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                            <TextBlock Text="刷新模型目录后，只安装你当前实际需要的模型包。"
+                                       Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+                        </StackPanel>
+                        <Button DockPanel.Dock="Right"
+                                Content="{DynamicResource 'Refresh'}"
+                                Command="{Binding RefreshModelCatalogCommand}"
+                                Style="{StaticResource MaterialDesignOutlinedButton}"/>
+                    </DockPanel>
+
+                    <TextBlock Text="{Binding ModelUpdateStatusText}"
+                               FontSize="12"
+                               Opacity="0.7"
+                               Margin="0,0,0,10"/>
+                    <ProgressBar Value="{Binding ModelDownloadProgress, Mode=OneWay}"
+                                 Maximum="100"
+                                 Height="6"
+                                 Margin="0,0,0,14"/>
+
+                    <ListBox ItemsSource="{Binding AvailableModelPackages}"
+                             BorderThickness="0"
+                             Background="Transparent">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <materialDesign:Card Margin="0,0,0,10"
+                                                     Padding="16"
+                                                     UniformCornerRadius="10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Name}"
+                                                       FontSize="15"
+                                                       FontWeight="SemiBold"/>
+                                            <TextBlock FontSize="12"
+                                                       Opacity="0.7"
+                                                       Margin="0,6,0,0">
+                                                <Run Text="{DynamicResource 'Type:'}"/>
+                                                <Run Text=" "/>
+                                                <Run Text="{Binding Type, Mode=OneWay}"/>
+                                            </TextBlock>
+                                            <TextBlock FontSize="12"
+                                                       Opacity="0.7"
+                                                       Margin="0,2,0,0">
+                                                <Run Text="{DynamicResource 'Version:'}"/>
+                                                <Run Text=" "/>
+                                                <Run Text="{Binding Version, Mode=OneWay}"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                        <Button Grid.Column="1"
+                                                Content="{DynamicResource 'Install'}"
+                                                Command="{Binding DataContext.InstallModelCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource MaterialDesignOutlinedButton}"
+                                                VerticalAlignment="Center"
+                                                Margin="12,0,0,0"/>
+                                    </Grid>
+                                </materialDesign:Card>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </StackPanel>
+            </materialDesign:Card>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource 'Translation Hot Reload'}"
+                               Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                    <TextBlock Text="需要同步最新翻译配置时使用，不必整包更新应用。"
+                               Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+
+                    <TextBlock Margin="0,18,0,4">
+                        <Run Text="{DynamicResource 'Profile Version:'}"/>
+                        <Run Text=" "/>
+                        <Run Text="{Binding TranslationProfileVersion, Mode=OneWay}"/>
+                    </TextBlock>
+                    <TextBlock Text="{Binding TranslationUpdateStatusText}"
+                               FontSize="12"
+                               Opacity="0.7"
+                               Margin="0,0,0,10"/>
+                    <ProgressBar Value="{Binding TranslationUpdateProgress, Mode=OneWay}"
+                                 Maximum="100"
+                                 Height="6"
+                                 Margin="0,0,0,14"/>
+                    <Button Content="{DynamicResource 'Sync Latest Profile'}"
+                            Command="{Binding SyncTranslationProfileCommand}"
+                            Style="{StaticResource MaterialDesignRaisedButton}"
+                            HorizontalAlignment="Left"/>
+                </StackPanel>
+            </materialDesign:Card>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

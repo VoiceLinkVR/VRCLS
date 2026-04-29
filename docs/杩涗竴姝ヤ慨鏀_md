@@ -1,0 +1,542 @@
+# VRCLS-CSharp 下一阶段开发计划
+
+> 最后更新: 2025-02-01
+> 基于当前项目实现状态
+
+---
+
+## 一、已完成功能回顾
+
+以下功能已完成：
+
+| 模块 | 功能 | 状态 |
+|------|------|------|
+| 音频捕获 | 麦克风/桌面 WASAPI 双路捕获 | 已完成 |
+| VAD | Silero VAD ONNX 语音检测 | 已完成 |
+| 音频编码 | Opus 编解码服务 | 已完成 |
+| 语音识别 | 本地 SherpaOnnx + 远程 FastAPI | 已完成 |
+| 翻译 | 开发者服务器翻译 + Python 翻译 | 已完成 |
+| OSC | ChatBox 发送、Avatar 参数、OSC 监听 | 已完成 |
+| TTS | 本地 System.Speech + 服务器 EdgeTTS | 已完成 |
+| 热键 | 全局热键 + 按住说话 + 4种语音模式 | 已完成 |
+| 命令 | 默认命令 + 用户脚本执行 | 已完成 |
+| SteamVR | VR Overlay 掌心字幕显示 | 已完成 |
+| UI | 主窗口双栏布局、设置页面 | 已完成 |
+| 配置 | AppConfig 40+ 配置项 | 已完成 |
+
+---
+
+## 二、待开发功能优先级
+
+### 优先级排序
+
+| 优先级 | 功能 | 重要性说明 |
+|--------|------|-----------|
+| **P0** | **OpenAI 通用接口翻译** | 支持 GLM/DeepSeek 等兼容接口 |
+| **P0** | **内嵌 Python 翻译引擎** | 用户无需配置 Python 环境 |
+| P1 | 应用程序自动更新 | Velopack 实现 |
+| P1 | 配置热更新 | FileSystemWatcher 监听 |
+| P2 | 模型热更新 | ONNX 模型动态重载 |
+| P3 | VRCBitmapLed 点阵屏 | 特殊功能，用户较少 |
+| P3 | 深色/浅色主题 | UI 美化 |
+
+---
+
+## 三、P0 - OpenAI 通用接口翻译 (最高优先级)
+
+### 3.1 功能需求
+
+支持所有兼容 OpenAI API 格式的翻译服务：
+- OpenAI GPT-3.5/GPT-4
+- 智谱 GLM-4 (glm-4-flash)
+- DeepSeek
+- 月之暗面 Kimi
+- 阿里通义千问
+- 本地 Ollama
+
+### 3.2 配置项 (AppConfig 已有，需扩展)
+
+```csharp
+public class OpenAiConfig
+{
+    [JsonPropertyName("api_key")]
+    public string ApiKey { get; set; } = string.Empty;
+
+    [JsonPropertyName("base_url")]
+    public string BaseUrl { get; set; } = "https://open.bigmodel.cn/api/paas/v4/";
+
+    [JsonPropertyName("model")]
+    public string Model { get; set; } = "glm-4-flash";
+
+    // 新增配置
+    [JsonPropertyName("temperature")]
+    public float Temperature { get; set; } = 0.3f;
+
+    [JsonPropertyName("max_tokens")]
+    public int MaxTokens { get; set; } = 1000;
+
+    [JsonPropertyName("system_prompt")]
+    public string SystemPrompt { get; set; } = ""; // 自定义提示词，为空则使用默认
+}
+```
+
+### 3.3 新增文件
+
+- `02.VRCLS.Services/Translation/OpenAiTranslationService.cs`
+
+### 3.4 接口设计
+
+```csharp
+public class OpenAiTranslationService : ITranslationService
+{
+    private readonly HttpClient _httpClient;
+    private readonly OpenAiConfig _config;
+    private static readonly Dictionary<string, string> LanguageNames = new()
+    {
+        {"en", "English"}, {"ja", "Japanese"}, {"ko", "Korean"},
+        {"zh", "Chinese"}, {"zt", "Traditional Chinese"}, {"ru", "Russian"},
+        {"es", "Spanish"}, {"fr", "French"}, {"de", "German"},
+        // ... 更多语言
+    };
+
+    public async Task<string> TranslateAsync(string text, string targetLang, string sourceLang)
+    {
+        var sourceName = LanguageNames.GetValueOrDefault(sourceLang, sourceLang);
+        var targetName = LanguageNames.GetValueOrDefault(targetLang, targetLang);
+
+        // 默认提示词 (参考原 Python 项目)
+        var systemPrompt = string.IsNullOrEmpty(_config.SystemPrompt)
+            ? $"""
+              你是一个专业的翻译助手。请将以下文本从{sourceName}翻译成{targetName}。
+
+              翻译要求：
+              1. 保持原文的意思和语气
+              2. 确保翻译准确、自然、流畅
+              3. 如果是语音识别错误，请尝试修正并翻译
+              4. 只返回翻译结果，不要添加任何解释或额外内容
+
+              请翻译以下文本：
+              """
+            : _config.SystemPrompt
+                .Replace("{sourceLang}", sourceName)
+                .Replace("{targetLang}", targetName);
+
+        var request = new
+        {
+            model = _config.Model,
+            messages = new[]
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user", content = text }
+            },
+            temperature = _config.Temperature,
+            max_tokens = _config.MaxTokens
+        };
+
+        var response = await _httpClient.PostAsJsonAsync(
+            $"{_config.BaseUrl.TrimEnd('/')}/chat/completions",
+            request);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.Warning("OpenAI 翻译失败: {Status}", response.StatusCode);
+            return string.Empty;
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<OpenAiResponse>();
+        return result?.Choices?.FirstOrDefault()?.Message?.Content?.Trim() ?? string.Empty;
+    }
+}
+```
+
+### 3.5 TranslationServiceManager 扩展
+
+```csharp
+// 在 TranslationServiceManager 中添加 OpenAI 路由
+public async Task<string> TranslateAsync(string text, string targetLang, string sourceLang)
+{
+    return _config.TranslateService switch
+    {
+        "developer" => await _serverService.TranslateAsync(text, targetLang, sourceLang),
+        "openai" => await _openAiService.TranslateAsync(text, targetLang, sourceLang),
+        "google" or "bing" or "baidu" => await _pythonService.TranslateAsync(text, targetLang, sourceLang),
+        _ => await _serverService.TranslateAsync(text, targetLang, sourceLang)
+    };
+}
+```
+
+---
+
+## 四、P0 - 内嵌 Python 翻译引擎 (无需用户配置环境)
+
+### 4.1 需求背景
+
+用户不应该需要：
+- 安装 Python
+- 配置 pip
+- 安装 translators 库
+
+应用程序应该开箱即用。
+
+### 4.2 技术方案：PyInstaller 打包为独立 exe
+
+将 Python 翻译脚本打包为独立的 Windows 可执行文件，随应用程序一起分发。
+
+**优势**：
+- 用户无需安装 Python 环境
+- 启动速度快（相比每次调用 python.exe）
+- 可以保持进程常驻，通过 stdin/stdout 通信
+- 打包后约 30-50MB，可接受
+
+### 4.3 Python 翻译服务架构
+
+```
+VRCLS.exe (C# 主程序)
+    |
+    +-- translator.exe (PyInstaller 打包的 Python 程序)
+        |
+        +-- 常驻进程，通过 stdin/stdout JSON 通信
+        +-- 支持 google, bing, baidu, alibaba, yandex 等引擎
+```
+
+### 4.4 Python 脚本设计
+
+**文件**: `scripts/translator.py`
+
+```python
+#!/usr/bin/env python3
+"""
+VRCLS 翻译服务 - 独立进程版本
+通过 stdin/stdout 与 C# 主程序通信
+使用 PyInstaller 打包为独立 exe
+"""
+import sys
+import json
+import html
+import traceback
+
+# 延迟导入，加快启动速度
+translators = None
+
+def lazy_import_translators():
+    global translators
+    if translators is None:
+        import translators as ts
+        translators = ts
+    return translators
+
+def translate(text: str, translator: str, from_lang: str, to_lang: str) -> dict:
+    """执行翻译"""
+    try:
+        ts = lazy_import_translators()
+        result = ts.translate_text(
+            text,
+            translator=translator,
+            from_language=from_lang,
+            to_language=to_lang
+        )
+        return {"success": True, "text": html.unescape(result)}
+    except Exception as e:
+        error_msg = str(e)
+        # 检查是否是同语言错误
+        if "should not be same" in error_msg:
+            return {"success": True, "text": text}
+        return {"success": False, "error": error_msg}
+
+def main():
+    """主循环 - 持续监听 stdin"""
+    # 发送就绪信号
+    print(json.dumps({"status": "ready"}), flush=True)
+
+    for line in sys.stdin:
+        try:
+            line = line.strip()
+            if not line:
+                continue
+
+            request = json.loads(line)
+            cmd = request.get("cmd", "translate")
+
+            if cmd == "translate":
+                result = translate(
+                    request["text"],
+                    request["translator"],
+                    request["from_lang"],
+                    request["to_lang"]
+                )
+                print(json.dumps(result, ensure_ascii=False), flush=True)
+
+            elif cmd == "ping":
+                print(json.dumps({"status": "pong"}), flush=True)
+
+            elif cmd == "exit":
+                break
+
+        except json.JSONDecodeError as e:
+            print(json.dumps({"success": False, "error": f"JSON解析错误: {e}"}), flush=True)
+        except Exception as e:
+            print(json.dumps({"success": False, "error": str(e)}), flush=True)
+
+if __name__ == "__main__":
+    main()
+```
+
+### 4.5 PyInstaller 打包脚本
+
+**文件**: `scripts/build_translator.ps1`
+
+```powershell
+# 创建虚拟环境并打包翻译器
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$venvDir = Join-Path $scriptDir "venv"
+$distDir = Join-Path $scriptDir ".." "translator_dist"
+
+# 创建虚拟环境
+if (-not (Test-Path $venvDir)) {
+    python -m venv $venvDir
+}
+
+# 激活虚拟环境并安装依赖
+& "$venvDir\Scripts\pip.exe" install translators pyinstaller --quiet
+
+# 打包
+& "$venvDir\Scripts\pyinstaller.exe" `
+    --onefile `
+    --name "translator" `
+    --distpath $distDir `
+    --clean `
+    --noconfirm `
+    "$scriptDir\translator.py"
+
+Write-Host "打包完成: $distDir\translator.exe"
+```
+
+**文件**: `scripts/requirements_translator.txt`
+
+```
+translators>=5.8.0
+```
+
+### 4.6 C# 调用实现
+
+**修改文件**: `02.VRCLS.Services/Translation/PythonTranslationService.cs`
+
+```csharp
+public class EmbeddedTranslatorService : ITranslationService, IDisposable
+{
+    private Process? _translatorProcess;
+    private StreamWriter? _stdin;
+    private StreamReader? _stdout;
+    private readonly SemaphoreSlim _lock = new(1, 1);
+    private readonly string _translatorPath;
+    private readonly string _translator; // google, bing, baidu 等
+    private bool _isReady;
+
+    public EmbeddedTranslatorService(AppConfig config)
+    {
+        _translator = config.TranslateService;
+
+        // 查找 translator.exe
+        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        _translatorPath = Path.Combine(baseDir, "translator", "translator.exe");
+
+        if (!File.Exists(_translatorPath))
+        {
+            _logger.Warning("未找到内嵌翻译器: {Path}", _translatorPath);
+        }
+    }
+
+    private async Task EnsureProcessStartedAsync()
+    {
+        if (_translatorProcess != null && !_translatorProcess.HasExited)
+            return;
+
+        _translatorProcess = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = _translatorPath,
+                UseShellExecute = false,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardInputEncoding = Encoding.UTF8
+            }
+        };
+
+        _translatorProcess.Start();
+        _stdin = _translatorProcess.StandardInput;
+        _stdout = _translatorProcess.StandardOutput;
+
+        // 等待就绪信号
+        var readyLine = await _stdout.ReadLineAsync();
+        var ready = JsonSerializer.Deserialize<JsonElement>(readyLine!);
+        _isReady = ready.GetProperty("status").GetString() == "ready";
+
+        _logger.Information("内嵌翻译器已启动");
+    }
+
+    public async Task<string> TranslateAsync(string text, string targetLang, string sourceLang)
+    {
+        await _lock.WaitAsync();
+        try
+        {
+            await EnsureProcessStartedAsync();
+
+            var request = new
+            {
+                cmd = "translate",
+                text = text,
+                translator = _translator,
+                from_lang = sourceLang,
+                to_lang = targetLang
+            };
+
+            await _stdin!.WriteLineAsync(JsonSerializer.Serialize(request));
+            await _stdin.FlushAsync();
+
+            var responseLine = await _stdout!.ReadLineAsync();
+            var response = JsonSerializer.Deserialize<JsonElement>(responseLine!);
+
+            if (response.GetProperty("success").GetBoolean())
+            {
+                return response.GetProperty("text").GetString() ?? string.Empty;
+            }
+
+            _logger.Warning("翻译失败: {Error}", response.GetProperty("error").GetString());
+            return string.Empty;
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            if (_translatorProcess != null && !_translatorProcess.HasExited)
+            {
+                _stdin?.WriteLine(JsonSerializer.Serialize(new { cmd = "exit" }));
+                _translatorProcess.WaitForExit(3000);
+                if (!_translatorProcess.HasExited)
+                    _translatorProcess.Kill();
+            }
+        }
+        catch { }
+
+        _stdin?.Dispose();
+        _stdout?.Dispose();
+        _translatorProcess?.Dispose();
+    }
+}
+```
+
+### 4.7 打包分发结构
+
+```
+VRCLS/
+├── VRCLS.exe                    # 主程序
+├── translator/
+│   └── translator.exe           # PyInstaller 打包的翻译器 (~30-50MB)
+├── models/
+│   ├── silero_vad.onnx
+│   └── sherpa-onnx-*/
+└── config.json
+```
+
+### 4.8 构建流程
+
+1. **开发时**: 使用 `scripts/build_translator.ps1` 打包翻译器
+2. **发布时**: 将 `translator.exe` 复制到发布目录的 `translator/` 文件夹
+3. **用户使用**: 无需任何配置，直接运行
+
+---
+
+## 五、P1 - 应用程序自动更新
+
+详见 `docs/UPDATE_FEATURE_SPEC.md`
+
+### 5.1 技术方案
+
+使用 **Velopack** 实现自动更新：
+- 检测新版本
+- 后台下载
+- 安装并重启
+
+### 5.2 服务器要求
+
+只需提供静态文件直链：
+
+```
+https://your-server.com/vrcls/releases/
+├── RELEASES                 # 版本清单
+├── VRCLS-1.0.0-full.nupkg  # 完整包
+└── VRCLS-1.1.0-full.nupkg  # 新版本包
+```
+
+---
+
+## 六、实现步骤总结
+
+### Phase 1: OpenAI 翻译 (P0)
+
+1. 创建 `OpenAiTranslationService.cs`
+2. 扩展 `OpenAiConfig` 添加 temperature, max_tokens, system_prompt
+3. 修改 `TranslationServiceManager` 添加 openai 路由
+4. 在设置界面添加 OpenAI 配置 UI
+
+### Phase 2: 内嵌翻译器 (P0)
+
+1. 创建 `scripts/translator.py` 常驻进程脚本
+2. 创建 `scripts/build_translator.ps1` 打包脚本
+3. 修改 `EmbeddedTranslatorService.cs` 实现进程通信
+4. 配置发布流程，将 translator.exe 包含在分发包中
+
+### Phase 3: 自动更新 (P1)
+
+1. 添加 Velopack NuGet 包
+2. 创建 `IUpdateService` 和 `VelopackUpdateService`
+3. 在 MainViewModel 添加启动检查逻辑
+4. 配置服务器发布目录
+
+---
+
+## 七、文件清单
+
+### 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `02.VRCLS.Services/Translation/OpenAiTranslationService.cs` | OpenAI 翻译服务 |
+| `02.VRCLS.Services/Translation/EmbeddedTranslatorService.cs` | 内嵌翻译器服务 |
+| `02.VRCLS.Services/Update/VelopackUpdateService.cs` | 自动更新服务 |
+| `scripts/translator.py` | Python 翻译脚本 |
+| `scripts/build_translator.ps1` | 打包脚本 |
+| `scripts/requirements_translator.txt` | Python 依赖 |
+
+### 需修改文件
+
+| 文件 | 修改内容 |
+|------|---------|
+| `01.VRCLS.Core/Models/AppConfig.cs` | 扩展 OpenAiConfig |
+| `02.VRCLS.Services/Translation/TranslationServiceManager.cs` | 添加 openai 路由 |
+| `03.VRCLS.UI/App.xaml.cs` | 注册新服务 |
+| `03.VRCLS.UI/Views/SettingsView.xaml` | 添加 OpenAI 配置 UI |
+
+---
+
+## 八、注意事项
+
+1. **OpenAI 兼容性**: 确保支持各种兼容 API (GLM, DeepSeek 等)
+2. **翻译器打包**: PyInstaller 打包后约 30-50MB，需要在发布流程中包含
+3. **进程管理**: 内嵌翻译器需要正确处理进程生命周期
+4. **错误处理**: 翻译失败时应该有合理的降级策略
+
+---
+
+*文档版本: v3.0*
+*更新日期: 2025-02-01*

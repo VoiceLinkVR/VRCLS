@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\01.VRCLS.Core\01.VRCLS.Core.csproj" />
+    <ProjectReference Include="..\..\02.VRCLS.Services\02.VRCLS.Services.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,584 @@
+<Window x:Class="VRCLS.UI.Views.UserCenterDonationWizardWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        mc:Ignorable="d"
+        Title="发电引导"
+        Width="860"
+        Height="720"
+        MinWidth="760"
+        MinHeight="620"
+        WindowStartupLocation="CenterOwner"
+        Topmost="False"
+        ResizeMode="CanResize"
+        Background="{DynamicResource MaterialDesignPaper}"
+        Closing="Window_Closing"
+        Loaded="Window_Loaded">
+    <Window.Resources>
+        <Style x:Key="WizardStepDotStyle" TargetType="Border">
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="44"/>
+            <Setter Property="CornerRadius" Value="22"/>
+            <Setter Property="Background" Value="#10000000"/>
+            <Setter Property="BorderBrush" Value="#19000000"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource PrimaryHueMidBrush}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource PrimaryHueMidBrush}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="DonationActionItemStyle" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Margin" Value="0,0,12,12"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="ItemBorder"
+                                Padding="18,14"
+                                CornerRadius="14"
+                                Background="#0A000000"
+                                BorderBrush="#18000000"
+                                BorderThickness="1">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#123F51B5"/>
+                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource PrimaryHueMidBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource PrimaryHueMidBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="16"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="20"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel>
+                <TextBlock Text="{DynamicResource 'UserCenterDonationWizardTitle'}" FontSize="26" FontWeight="Bold"/>
+                <TextBlock Text="{DynamicResource 'UserCenterDonationWizardSubtitle'}"
+                           Margin="0,8,0,0"
+                           Opacity="0.74"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <Button Grid.Column="1"
+                    Width="40"
+                    Height="40"
+                    Style="{StaticResource MaterialDesignIconButton}"
+                    ToolTip="{DynamicResource '关闭'}"
+                    Click="OnCloseWindow">
+                <materialDesign:PackIcon Kind="Close" Width="20" Height="20"/>
+            </Button>
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="0,22,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                <Border Style="{StaticResource WizardStepDotStyle}" Tag="{Binding IsDonationWizardCredentialsStep}">
+                    <TextBlock Text="1" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" Foreground="White"/>
+                </Border>
+                <TextBlock Text="{DynamicResource 'UserCenterDonationWizardStepTitle1'}" Margin="0,10,0,0" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                <TextBlock Text="{DynamicResource 'UserCenterDonationWizardStepLabel1'}" Margin="0,4,0,0" FontSize="12" Opacity="0.68" TextAlignment="Center" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                <Border Style="{StaticResource WizardStepDotStyle}" Tag="{Binding IsDonationWizardPaymentStep}">
+                    <TextBlock Text="2" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" Foreground="White"/>
+                </Border>
+                <TextBlock Text="{DynamicResource 'UserCenterDonationWizardStepTitle2'}" Margin="0,10,0,0" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                <TextBlock Text="{DynamicResource 'UserCenterDonationWizardStepLabel2'}" Margin="0,4,0,0" FontSize="12" Opacity="0.68" TextAlignment="Center" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                <Border Style="{StaticResource WizardStepDotStyle}" Tag="{Binding IsDonationWizardConfirmStep}">
+                    <TextBlock Text="3" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" Foreground="White"/>
+                </Border>
+                <TextBlock Text="{DynamicResource 'UserCenterDonationWizardStepTitle3'}" Margin="0,10,0,0" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                <TextBlock Text="{DynamicResource 'UserCenterDonationWizardStepLabel3'}" Margin="0,4,0,0" FontSize="12" Opacity="0.68" TextAlignment="Center" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="3" HorizontalAlignment="Center">
+                <Border Style="{StaticResource WizardStepDotStyle}" Tag="{Binding IsDonationWizardVerificationStep}">
+                    <TextBlock Text="4" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" Foreground="White"/>
+                </Border>
+                <TextBlock Text="{DynamicResource 'UserCenterDonationWizardStepTitle4'}" Margin="0,10,0,0" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                <TextBlock Text="{DynamicResource 'UserCenterDonationWizardStepLabel4'}" Margin="0,4,0,0" FontSize="12" Opacity="0.68" TextAlignment="Center" TextWrapping="Wrap"/>
+            </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="3"
+                CornerRadius="20"
+                Padding="26"
+                Background="#08FFFFFF"
+                BorderBrush="#14000000"
+                BorderThickness="1">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <Grid>
+                    <Grid Visibility="{Binding IsDonationWizardCredentialsStep, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource 'UserCenterDonationWizardCredentialHeader'}" FontSize="20" FontWeight="Bold"/>
+                            <TextBlock Text="{DynamicResource 'UserCenterDonationWizardCredentialDescription'}"
+                                       Margin="0,10,0,0"
+                                       Opacity="0.76"
+                                       TextWrapping="Wrap"/>
+
+                            <Border Margin="0,16,0,0"
+                                    Padding="16"
+                                    CornerRadius="12"
+                                    Background="#0C3F51B5"
+                                    BorderBrush="#183F51B5"
+                                    BorderThickness="1">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="InformationOutline" Width="18" Height="18" Margin="0,0,10,0"/>
+                                    <TextBlock Text="{DynamicResource 'UserCenterDonationWizardAutoRegisterHint'}" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,14,0,0"
+                                    Padding="16"
+                                    CornerRadius="12"
+                                    Background="#0A000000"
+                                    BorderBrush="#14000000"
+                                    BorderThickness="1"
+                                    Visibility="{Binding IsCurrentLoginTestAccount, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="AccountAlertOutline" Width="18" Height="18" Margin="0,0,10,0"/>
+                                    <TextBlock Text="{DynamicResource 'UserCenterGuideTestAccountHint'}"
+                                               FontWeight="SemiBold"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Grid Margin="0,18,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="14"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="14"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBox Grid.Column="0"
+                                         Text="{Binding DonationUsername}"
+                                         materialDesign:HintAssist.Hint="{DynamicResource '用户名'}"
+                                         Style="{StaticResource MaterialDesignFloatingHintTextBox}"/>
+
+                                <PasswordBox Grid.Column="2"
+                                             x:Name="DonationWizardPasswordBox"
+                                             materialDesign:HintAssist.Hint="{DynamicResource '密码'}"
+                                             Style="{StaticResource MaterialDesignFloatingHintPasswordBox}"
+                                             PasswordChanged="OnDonationPasswordChanged"/>
+
+                                <Button Grid.Column="4"
+                                        Command="{Binding LoadPaymentGuideCommand}"
+                                        Style="{StaticResource MaterialDesignRaisedButton}"
+                                        Padding="18,10"
+                                        MinHeight="42"
+                                        Content="{DynamicResource 'UserCenterGuideLoadButton'}"/>
+                            </Grid>
+
+                            <TextBlock Text="{Binding PaymentGuideStatus}"
+                                       Margin="0,14,0,0"
+                                       FontSize="12"
+                                       Opacity="0.82"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding PaymentGuideStatus, Converter={StaticResource StringVisibilityConverter}}"/>
+
+                            <Border Margin="0,14,0,0"
+                                    Padding="16"
+                                    CornerRadius="12"
+                                    Background="#12000000"
+                                    BorderBrush="#1F3F51B5"
+                                    BorderThickness="1"
+                                    Visibility="{Binding HasPaymentGuide, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource 'UserCenterGuideLoadedTitle'}" FontWeight="Bold"/>
+                                    <Grid Margin="0,12,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="12"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource 'UserCenterGuideCurrentPlan'}" FontWeight="SemiBold"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding DisplayPlanName}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource 'UserCenterGuideCurrentQuota'}" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding DisplayResourceSummary}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource 'UserCenterGuideRule'}" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding ResourceRuleSummary}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Visibility="{Binding IsDonationWizardPaymentStep, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource 'UserCenterDonationWizardPaymentHeader'}" FontSize="20" FontWeight="Bold"/>
+                            <TextBlock Text="{DynamicResource 'UserCenterDonationWizardPaymentDescription'}"
+                                       Margin="0,10,0,0"
+                                       Opacity="0.76"
+                                       TextWrapping="Wrap"/>
+
+                            <ComboBox Margin="0,18,0,0" Visibility="Collapsed"
+                                      ItemsSource="{Binding DonationActions}"
+                                      DisplayMemberPath="DisplayName"
+                                      SelectedValuePath="Code"
+                                      SelectedValue="{Binding DonationAction, Mode=TwoWay}"
+                                      IsEnabled="{Binding HasPaymentGuide}"
+                                      materialDesign:HintAssist.Hint="{DynamicResource '发电类型'}"/>
+
+                            <TextBlock Text="{DynamicResource '鍙戠數绫诲瀷'}"
+                                       Margin="0,18,0,10"
+                                       FontWeight="SemiBold"/>
+                            <ListBox ItemsSource="{Binding DonationActions}"
+                                     SelectedValuePath="Code"
+                                     SelectedValue="{Binding DonationAction, Mode=TwoWay}"
+                                     IsEnabled="{Binding HasPaymentGuide}"
+                                     BorderThickness="0"
+                                     Background="Transparent">
+                                <ListBox.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel/>
+                                    </ItemsPanelTemplate>
+                                </ListBox.ItemsPanel>
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource DonationActionItemStyle}"/>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Width="180">
+                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="14"/>
+                                            <TextBlock Text="Click to use this billing action."
+                                                       Margin="0,6,0,0"
+                                                       FontSize="12"
+                                                       Opacity="0.64"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+
+                            <Grid Margin="0,16,0,0" IsEnabled="{Binding HasPaymentGuide}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Button Grid.Column="0"
+                                        Content="-"
+                                        Width="36"
+                                        Height="36"
+                                        MinHeight="36"
+                                        Padding="0"
+                                        FontSize="16"
+                                        Style="{StaticResource MaterialDesignRaisedButton}"
+                                        Command="{Binding DecreaseDonationPriceCommand}"
+                                        IsEnabled="{Binding IsDonationPriceReadOnly, Converter={StaticResource InverseBooleanConverter}}"/>
+
+                                <TextBox Grid.Column="2"
+                                         Text="{Binding DonationPrice}"
+                                         HorizontalContentAlignment="Center"
+                                         IsReadOnly="True"
+                                         materialDesign:HintAssist.Hint="{DynamicResource '发电金额'}"
+                                         Style="{StaticResource MaterialDesignFloatingHintTextBox}"/>
+
+                                <Button Grid.Column="4"
+                                        Content="+"
+                                        Width="36"
+                                        Height="36"
+                                        MinHeight="36"
+                                        Padding="0"
+                                        FontSize="16"
+                                        Style="{StaticResource MaterialDesignRaisedButton}"
+                                        Command="{Binding IncreaseDonationPriceCommand}"
+                                        IsEnabled="{Binding IsDonationPriceReadOnly, Converter={StaticResource InverseBooleanConverter}}"/>
+                            </Grid>
+
+                            <TextBlock Text="{Binding DonationPriceGuideText}"
+                                       Margin="0,8,0,0"
+                                       FontSize="12"
+                                       Opacity="0.78"
+                                       TextWrapping="Wrap"/>
+
+                            <TextBlock Text="{Binding SelectedDonationPriceOptionQuotaPreview}"
+                                       Margin="0,6,0,0"
+                                       FontSize="12"
+                                       Opacity="0.78"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding SelectedDonationPriceOptionQuotaPreview, Converter={StaticResource StringVisibilityConverter}}"/>
+
+                            <Grid Margin="0,18,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="24"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="{DynamicResource 'UserCenterMonthSelector'}" FontWeight="SemiBold"/>
+                                    <Slider Minimum="1"
+                                            Maximum="12"
+                                            TickFrequency="1"
+                                            IsSnapToTickEnabled="True"
+                                            Value="{Binding DonationMonths, Mode=TwoWay}"
+                                            Margin="0,8,0,0"
+                                            IsEnabled="{Binding HasPaymentGuide}"/>
+                                    <TextBlock Margin="0,6,0,0" Opacity="0.72">
+                                        <Run Text="{Binding DonationMonths}"/>
+                                        <Run Text=" "/>
+                                        <Run Text="{DynamicResource '月'}"/>
+                                    </TextBlock>
+                                </StackPanel>
+
+                                <Border Grid.Column="2" Background="#0F000000" CornerRadius="12" Padding="18,16" BorderBrush="#12000000" BorderThickness="1" Visibility="Collapsed">
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{DynamicResource 'UserCenterTotalPrice'}" FontSize="12" Opacity="0.72"/>
+                                        <TextBlock Text="{Binding DonationTotalPrice, StringFormat='￥ {0:F2}'}" FontSize="28" FontWeight="Bold" Margin="0,6,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <Grid Margin="0,-102,0,0" HorizontalAlignment="Right">
+                                <Grid Width="250">
+                                    <Border Background="{DynamicResource PrimaryHueLightBrush}" CornerRadius="14" Padding="24" Opacity="0.12"/>
+                                    <StackPanel HorizontalAlignment="Center" Margin="0,18,0,0">
+                                        <TextBlock Text="预计支付总额" FontSize="13" Opacity="0.6" HorizontalAlignment="Center"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,8,0,0">
+                                            <TextBlock Text="￥" FontSize="20" FontWeight="Bold" VerticalAlignment="Bottom" Margin="0,0,4,4"/>
+                                            <TextBlock Text="{Binding DonationTotalPrice, StringFormat={}{0:F2}}" FontSize="46" FontWeight="Black"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+
+                            <Border Padding="14" CornerRadius="12" Margin="0,16,0,0" Background="#0A000000" BorderBrush="#14000000" BorderThickness="1">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ShieldCheckOutline" Width="18" Height="18" Margin="0,0,10,0"/>
+                                    <TextBlock Text="{DynamicResource 'UserCenterPaymentWarning'}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Button Command="{Binding CreateDonationLinkCommand}"
+                                    Style="{StaticResource MaterialDesignRaisedButton}"
+                                    Margin="0,18,0,0"
+                                    Padding="18,10"
+                                    MinHeight="44"
+                                    HorizontalAlignment="Stretch">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <materialDesign:PackIcon Kind="OpenInNew" Width="18" Height="18" Margin="0,0,8,0"/>
+                                    <TextBlock Text="{DynamicResource '生成并打开发电链接'}" FontWeight="SemiBold"/>
+                                </StackPanel>
+                            </Button>
+
+                            <TextBlock Text="{Binding DonationStatus}"
+                                       Margin="0,14,0,0"
+                                       FontSize="12"
+                                       Opacity="0.82"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding DonationStatus, Converter={StaticResource StringVisibilityConverter}}"/>
+
+                            <TextBox Margin="0,14,0,0"
+                                     Text="{Binding PendingDonationOverview, Mode=OneWay}"
+                                     IsReadOnly="True"
+                                     materialDesign:HintAssist.Hint="{DynamicResource 'UserCenterDonationOverviewLabel'}"
+                                     Visibility="{Binding PendingDonationOverview, Converter={StaticResource StringVisibilityConverter}}"/>
+
+                            <TextBox Margin="0,12,0,0"
+                                     Text="{Binding DonationUrl}"
+                                     IsReadOnly="True"
+                                     materialDesign:HintAssist.Hint="{DynamicResource '发电链接'}"
+                                     Visibility="{Binding DonationUrl, Converter={StaticResource StringVisibilityConverter}}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Visibility="{Binding IsDonationWizardConfirmStep, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource 'UserCenterDonationWizardConfirmHeader'}" FontSize="20" FontWeight="Bold"/>
+                            <TextBlock Text="{DynamicResource 'UserCenterDonationWizardConfirmDescription'}"
+                                       Margin="0,10,0,0"
+                                       Opacity="0.76"
+                                       TextWrapping="Wrap"/>
+
+                            <Border Margin="0,18,0,0"
+                                    Padding="18"
+                                    CornerRadius="14"
+                                    Background="#0C3F51B5"
+                                    BorderBrush="#193F51B5"
+                                    BorderThickness="1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="12"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource '发电类型'}" FontWeight="SemiBold"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding PendingDonationActionDisplayName}" TextWrapping="Wrap"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource '发电金额'}" FontWeight="SemiBold" Margin="0,10,0,0"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding PendingDonationMonthlyPriceDisplay, StringFormat='￥ {0}/月'}" Margin="0,10,0,0"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource 'UserCenterMonthSelector'}" FontWeight="SemiBold" Margin="0,10,0,0"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding PendingDonationMonthsDisplay, StringFormat='{}{0} 个月'}" Margin="0,10,0,0"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource 'UserCenterVerificationExpectedQuota'}" FontWeight="SemiBold" Margin="0,10,0,0"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding PendingDonationExpectedDailyQuotaDisplay}" Margin="0,10,0,0"/>
+
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource 'UserCenterVerificationExpectedExpiration'}" FontWeight="SemiBold" Margin="0,10,0,0"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="2" Text="{Binding PendingDonationMinimumExpirationDisplay}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+                                </Grid>
+                            </Border>
+
+                            <TextBlock Text="{DynamicResource 'UserCenterDonationWizardConfirmFooter'}"
+                                       Margin="0,16,0,0"
+                                       TextWrapping="Wrap"
+                                       Opacity="0.76"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Visibility="{Binding IsDonationWizardVerificationStep, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource 'UserCenterDonationWizardVerificationHeader'}" FontSize="20" FontWeight="Bold"/>
+                            <TextBlock Text="{DynamicResource 'UserCenterDonationWizardVerificationDescription'}"
+                                       Margin="0,10,0,0"
+                                       Opacity="0.76"
+                                       TextWrapping="Wrap"/>
+
+                            <Border Margin="0,18,0,0"
+                                    Padding="18"
+                                    CornerRadius="14"
+                                    Background="#0C000000"
+                                    BorderBrush="#16000000"
+                                    BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource 'UserCenterVerificationExpectations'}" FontWeight="Bold"/>
+                                    <TextBlock Margin="0,10,0,0" Text="{Binding PendingDonationOverview}" TextWrapping="Wrap"/>
+                                    <TextBlock Margin="0,8,0,0" Text="{Binding PendingDonationExpectedDailyQuotaDisplay, StringFormat='资源数：{0}'}" TextWrapping="Wrap"/>
+                                    <TextBlock Margin="0,6,0,0" Text="{Binding PendingDonationMinimumExpirationDisplay, StringFormat='到期时间不早于：{0}'}" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,16,0,0"
+                                    Padding="16"
+                                    CornerRadius="12"
+                                    Background="#144CAF50"
+                                    BorderBrush="#334CAF50"
+                                    BorderThickness="1"
+                                    Visibility="{Binding DonationVerificationSucceeded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="{DynamicResource 'UserCenterVerificationSuccessBanner'}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                            </Border>
+
+                            <TextBlock Margin="0,16,0,0"
+                                       Text="{Binding DonationVerificationAttempt, StringFormat='当前轮询次数：{0}/3'}"
+                                       Opacity="0.72"/>
+
+                            <TextBlock Margin="0,10,0,0"
+                                       Text="{Binding DonationVerificationStatus}"
+                                       FontSize="13"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding DonationVerificationStatus, Converter={StaticResource StringVisibilityConverter}}"/>
+
+                            <Button Margin="0,18,0,0"
+                                    Padding="16,10"
+                                    HorizontalAlignment="Left"
+                                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                                    Command="{Binding RetryDonationVerificationCommand}"
+                                    Visibility="{Binding DonationVerificationSucceeded, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Refresh" Width="16" Height="16" Margin="0,0,8,0"/>
+                                    <TextBlock Text="{DynamicResource 'UserCenterRetryVerification'}"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </ScrollViewer>
+        </Border>
+
+        <Grid Grid.Row="5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="0"
+                    Padding="18,10"
+                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                    Content="{DynamicResource '关闭'}"
+                    IsEnabled="{Binding CanCloseDonationWizard}"
+                    Click="OnCloseWindow"/>
+
+            <Button Grid.Column="2"
+                    Padding="18,10"
+                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                    Command="{Binding DonationWizardBackCommand}"
+                    Visibility="{Binding IsDonationWizardCredentialsStep, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="ChevronLeft" Width="16" Height="16" Margin="0,0,8,0"/>
+                    <TextBlock Text="{DynamicResource '上一步'}"/>
+                </StackPanel>
+            </Button>
+
+            <Button Grid.Column="4"
+                    Padding="18,10"
+                    MinWidth="140"
+                    Style="{StaticResource MaterialDesignRaisedButton}"
+                    Command="{Binding DonationWizardNextCommand}"
+                    Visibility="{Binding IsDonationWizardVerificationStep, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding DonationWizardNextButtonText}" FontWeight="SemiBold"/>
+                    <materialDesign:PackIcon Kind="ChevronRight" Width="16" Height="16" Margin="8,0,0,0"/>
+                </StackPanel>
+            </Button>
+        </Grid>
+    </Grid>
+</Window>

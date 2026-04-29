@@ -1,0 +1,1 @@
+powershell -ExecutionPolicy Bypass -File .\scripts\publish_with_premodels.ps1 -Configuration Release -Runtime win-x64 -Zip

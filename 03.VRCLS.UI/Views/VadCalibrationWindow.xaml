@@ -1,0 +1,342 @@
+<Window x:Class="VRCLS.UI.Views.VadCalibrationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="VAD Calibration"
+        Width="720"
+        Height="760"
+        MinWidth="640"
+        MinHeight="700"
+        WindowStartupLocation="CenterOwner"
+        Topmost="False"
+        ResizeMode="NoResize"
+        Background="{DynamicResource MaterialDesignPaper}">
+    <Window.Resources>
+        <Style x:Key="GuideHeadlineTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}"/>
+        </Style>
+
+        <Style x:Key="GuideBodyTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Opacity" Value="0.65"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <Style x:Key="GuideMetricLabelTextStyle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                Background="{DynamicResource PrimaryHueMidBrush}"
+                Padding="28,24">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Width="64"
+                        Height="64"
+                        CornerRadius="32"
+                        Background="#1FFFFFFF"
+                        VerticalAlignment="Center">
+                    <materialDesign:PackIcon Kind="MicrophoneSettings"
+                                             Width="34"
+                                             Height="34"
+                                             Foreground="White"
+                                             HorizontalAlignment="Center"
+                                             VerticalAlignment="Center"/>
+                </Border>
+
+                <StackPanel Grid.Column="1"
+                            Margin="18,0,0,0"
+                            VerticalAlignment="Center">
+                    <TextBlock Text="{Binding TitleText}"
+                               FontSize="22"
+                               FontWeight="Bold"
+                               Foreground="White"/>
+                    <TextBlock Text="只需 3 步，让程序根据你的说话节奏和环境噪声生成更稳妥的 VAD 建议。"
+                               Margin="0,6,0,0"
+                               FontSize="13"
+                               Foreground="#EEFFFFFF"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto">
+            <Grid Margin="24,24,24,20">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <materialDesign:Card Grid.Row="0"
+                                     Style="{StaticResource SettingsSectionCardStyle}">
+                    <StackPanel HorizontalAlignment="Center"
+                                MaxWidth="460">
+                        <TextBlock Text="{Binding GuideTitle}"
+                                   FontSize="26"
+                                   FontWeight="SemiBold"
+                                   HorizontalAlignment="Center"
+                                   TextAlignment="Center"/>
+                        <TextBlock Text="{Binding GuideInstruction}"
+                                   Style="{StaticResource GuideBodyTextStyle}"
+                                   FontSize="15"
+                                   Margin="0,16,0,0"
+                                   TextAlignment="Center"/>
+                        <TextBlock Text="{Binding GuideProgressText}"
+                                   Style="{StaticResource GuideBodyTextStyle}"
+                                   Margin="0,12,0,0"
+                                   TextAlignment="Center"/>
+
+                        <Grid Width="184"
+                              Height="184"
+                              Margin="0,28,0,0"
+                              HorizontalAlignment="Center">
+                            <Ellipse Stroke="{DynamicResource MaterialDesignDivider}"
+                                     StrokeThickness="10"/>
+                            <Ellipse Stroke="{DynamicResource PrimaryHueMidBrush}"
+                                     StrokeThickness="10"
+                                     Opacity="0.25"/>
+                            <StackPanel HorizontalAlignment="Center"
+                                        VerticalAlignment="Center">
+                                <TextBlock Text="{Binding GuideCountdownText}"
+                                           FontSize="28"
+                                           FontWeight="Bold"
+                                           Foreground="{DynamicResource PrimaryHueMidBrush}"
+                                           HorizontalAlignment="Center"
+                                           TextAlignment="Center"/>
+                                <TextBlock Text="引导进行中"
+                                           Margin="0,8,0,0"
+                                           FontSize="12"
+                                           Opacity="0.55"
+                                           HorizontalAlignment="Center"
+                                           TextAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Text="{Binding MeasurementText}"
+                                   Margin="0,28,0,0"
+                                   FontSize="14"
+                                   Opacity="0.72"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"/>
+
+                        <WrapPanel Margin="0,24,0,0"
+                                   HorizontalAlignment="Center">
+                            <Button Content="开始引导"
+                                    Width="140"
+                                    Height="40"
+                                    Margin="0,0,12,12"
+                                    Style="{StaticResource MaterialDesignRaisedButton}"
+                                    Click="OnStartGuideClicked"/>
+                            <Button Content="重新来过"
+                                    Width="140"
+                                    Height="40"
+                                    Margin="0,0,12,12"
+                                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                                    IsEnabled="{Binding CanRestartGuide}"
+                                    Click="OnRestartGuideClicked"/>
+                            <Button Content="应用推荐值"
+                                    Width="140"
+                                    Height="40"
+                                    Margin="0,0,0,12"
+                                    Style="{StaticResource MaterialDesignFlatButton}"
+                                    IsEnabled="{Binding HasSuggestedValues}"
+                                    Click="OnApplySuggestedClicked"/>
+                        </WrapPanel>
+                    </StackPanel>
+                </materialDesign:Card>
+
+                <materialDesign:Card Grid.Row="1"
+                                     Style="{StaticResource SettingsSectionCardStyle}">
+                    <StackPanel>
+                        <DockPanel LastChildFill="False">
+                            <StackPanel DockPanel.Dock="Left"
+                                        Width="420">
+                                <TextBlock Text="推荐结果"
+                                           Style="{StaticResource GuideHeadlineTextStyle}"/>
+                                <TextBlock Text="完成三段采样后，这里会给出更适合当前环境的建议值。"
+                                           Style="{StaticResource GuideBodyTextStyle}"
+                                           Margin="0,8,0,0"/>
+                            </StackPanel>
+                            <Border DockPanel.Dock="Right"
+                                    Padding="14,8"
+                                    CornerRadius="18"
+                                    Background="#14000000">
+                                <TextBlock Text="{Binding PendingSummary}"
+                                           FontSize="12"
+                                           Opacity="0.74"/>
+                            </Border>
+                        </DockPanel>
+
+                        <Border Margin="0,18,0,0"
+                                Padding="18"
+                                CornerRadius="12"
+                                Background="#0F000000">
+                            <TextBlock Text="{Binding SuggestedSummary}"
+                                       FontSize="13"
+                                       Opacity="0.82"
+                                       TextWrapping="Wrap"/>
+                        </Border>
+                    </StackPanel>
+                </materialDesign:Card>
+
+                <materialDesign:Card Grid.Row="2"
+                                     Style="{StaticResource SettingsSectionCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="实时状态"
+                                   Style="{StaticResource GuideHeadlineTextStyle}"/>
+                        <TextBlock Text="如果长时间停留在等待测量，请先确认对应音频输入已经开始工作，再进行说话或静音采样。"
+                                   Style="{StaticResource GuideBodyTextStyle}"
+                                   Margin="0,8,0,0"/>
+
+                        <Grid Margin="0,18,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Width="44"
+                                    Height="44"
+                                    CornerRadius="22"
+                                    Background="{DynamicResource PrimaryHueLightBrush}"
+                                    Opacity="0.18"
+                                    VerticalAlignment="Top">
+                                <materialDesign:PackIcon Kind="Pulse"
+                                                         Width="22"
+                                                         Height="22"
+                                                         HorizontalAlignment="Center"
+                                                         VerticalAlignment="Center"
+                                                         Foreground="{DynamicResource PrimaryHueMidBrush}"/>
+                            </Border>
+
+                            <TextBlock Grid.Column="1"
+                                       Margin="16,2,0,0"
+                                       Text="{Binding MeasurementText}"
+                                       FontSize="14"
+                                       TextWrapping="Wrap"/>
+                        </Grid>
+                    </StackPanel>
+                </materialDesign:Card>
+
+                <materialDesign:Card Grid.Row="3"
+                                     Style="{StaticResource SettingsSectionCardStyle}"
+                                     Margin="0,0,0,0">
+                    <StackPanel>
+                        <TextBlock Text="高级设置"
+                                   Style="{StaticResource GuideHeadlineTextStyle}"/>
+                        <TextBlock Text="默认情况下只建议通过引导生成结果。手动滑块仅用于你明确知道需要微调时。"
+                                   Style="{StaticResource GuideBodyTextStyle}"
+                                   Margin="0,8,0,0"/>
+
+                        <Expander Header="高级：手动微调参数"
+                                  Margin="0,18,0,0"
+                                  Background="Transparent">
+                            <StackPanel Margin="0,16,0,0">
+                                <TextBlock Text="最短静音分段 (秒)"
+                                           Style="{StaticResource GuideMetricLabelTextStyle}"/>
+                                <TextBlock Text="说话停止多久后切分语句。数值越小响应越快，数值越大越稳定。"
+                                           Style="{StaticResource GuideBodyTextStyle}"
+                                           Margin="0,0,0,10"/>
+                                <Grid Margin="0,0,0,18">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="104"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider Minimum="0.05"
+                                            Maximum="5.00"
+                                            TickFrequency="0.05"
+                                            IsSnapToTickEnabled="False"
+                                            Margin="0,6,16,0"
+                                            Value="{Binding MinSilenceDuration, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <TextBox Grid.Column="1"
+                                             VerticalContentAlignment="Center"
+                                             materialDesign:HintAssist.Hint="秒"
+                                             Text="{Binding MinSilenceDuration, StringFormat={}{0:F2}, UpdateSourceTrigger=PropertyChanged}"/>
+                                </Grid>
+
+                                <TextBlock Text="VAD 阈值"
+                                           Style="{StaticResource GuideMetricLabelTextStyle}"/>
+                                <TextBlock Text="阈值越高越严格，阈值越低越敏感。建议结合上方实时测量结果进行调整。"
+                                           Style="{StaticResource GuideBodyTextStyle}"
+                                           Margin="0,0,0,10"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="104"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider Minimum="0.01"
+                                            Maximum="0.99"
+                                            TickFrequency="0.01"
+                                            IsSnapToTickEnabled="False"
+                                            Margin="0,6,16,0"
+                                            Value="{Binding Threshold, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <TextBox Grid.Column="1"
+                                             VerticalContentAlignment="Center"
+                                             materialDesign:HintAssist.Hint="阈值"
+                                             Text="{Binding Threshold, StringFormat={}{0:F2}, UpdateSourceTrigger=PropertyChanged}"/>
+                                </Grid>
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
+                </materialDesign:Card>
+            </Grid>
+        </ScrollViewer>
+
+        <Border Grid.Row="2"
+                Background="{DynamicResource MaterialDesignPaper}"
+                BorderBrush="{DynamicResource MaterialDesignDivider}"
+                BorderThickness="0,1,0,0"
+                Padding="24,16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="{Binding PendingSummary}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,20,0"
+                           FontSize="13"
+                           Opacity="0.72"
+                           TextWrapping="Wrap"/>
+
+                <WrapPanel Grid.Column="1"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Center">
+                    <Button Content="恢复当前值"
+                            Height="40"
+                            Margin="0,0,12,0"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                            Click="OnResetClicked"/>
+                    <Button Content="应用"
+                            Height="40"
+                            Margin="0,0,12,0"
+                            IsDefault="True"
+                            Style="{StaticResource MaterialDesignRaisedButton}"
+                            Click="OnApplyClicked"/>
+                    <Button Content="取消"
+                            Height="40"
+                            IsCancel="True"
+                            Style="{StaticResource MaterialDesignFlatButton}"/>
+                </WrapPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

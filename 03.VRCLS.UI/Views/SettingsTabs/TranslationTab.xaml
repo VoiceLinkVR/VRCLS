@@ -1,0 +1,485 @@
+<UserControl x:Class="VRCLS.UI.Views.SettingsTabs.TranslationTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             Loaded="OnLoaded">
+    <UserControl.Resources>
+        <GroupStyle x:Key="LanguageComboGroupStyle">
+            <GroupStyle.HeaderTemplate>
+                <DataTemplate>
+                    <TextBlock Margin="12,10,12,4"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               Opacity="0.68"
+                               Text="{Binding Name}"/>
+                </DataTemplate>
+            </GroupStyle.HeaderTemplate>
+        </GroupStyle>
+    </UserControl.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  Padding="28">
+        <StackPanel Width="{Binding RelativeSource={RelativeSource AncestorType=ScrollViewer}, Path=ViewportWidth}"
+                    MaxWidth="1120">
+            <TextBlock Text="识别与翻译"
+                       Style="{StaticResource MaterialDesignHeadline5TextBlock}"/>
+            <TextBlock Text="语言通道和 OpenAI 兼容参数都直接显示，不再额外折叠。"
+                       Margin="0,8,0,22"
+                       FontSize="13"
+                       Opacity="0.68"
+                       TextWrapping="Wrap"/>
+
+            <Border Padding="14"
+                    CornerRadius="12"
+                    Margin="0,0,0,18"
+                    Background="#0F3F51B5"
+                    BorderBrush="#193F51B5"
+                    BorderThickness="1"
+                    Visibility="{Binding HasPendingTranslationConfigChanges, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBlock Text="{DynamicResource TranslationSaveHintPending}"
+                           FontSize="13"
+                           TextWrapping="Wrap"/>
+            </Border>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="全局引擎与区域"
+                               Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                    <TextBlock Text="先确定两路音频的翻译引擎，再设置使用区域。"
+                               Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+
+                    <Grid Margin="0,18,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="200"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="麦克风翻译引擎"
+                                       Style="{StaticResource SettingsRowTitleTextStyle}"/>
+                            <TextBlock Text="处理麦克风语音识别后的文本翻译。"
+                                       Style="{StaticResource SettingsRowDescriptionTextStyle}"/>
+                        </StackPanel>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding TranslationServiceOptions}"
+                                  SelectedValuePath="Code"
+                                  DisplayMemberPath="DisplayName"
+                                  SelectedValue="{Binding MicTranslationServer}"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}"/>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="200"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="监听音频翻译引擎"
+                                       Style="{StaticResource SettingsRowTitleTextStyle}"/>
+                            <TextBlock Text="处理系统或应用内声音的翻译。"
+                                       Style="{StaticResource SettingsRowDescriptionTextStyle}"/>
+                        </StackPanel>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding TranslationServiceOptions}"
+                                  SelectedValuePath="Code"
+                                  DisplayMemberPath="DisplayName"
+                                  SelectedValue="{Binding DesktopTranslationServer}"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}"/>
+                    </Grid>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="200"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="非开发者引擎区域"
+                                       Style="{StaticResource SettingsRowTitleTextStyle}"/>
+                            <TextBlock Text="选择中国大陆可优化网络连通性。"
+                                       Style="{StaticResource SettingsRowDescriptionTextStyle}"/>
+                        </StackPanel>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding TranslatorRegions}"
+                                  SelectedValue="{Binding TranslatorsDefaultRegion}"
+                                  SelectedValuePath="Code"
+                                  DisplayMemberPath="DisplayName"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}"/>
+                    </Grid>
+                </StackPanel>
+            </materialDesign:Card>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="麦克风语言通道"
+                               Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                    <TextBlock Text="配置麦克风识别语言和三路翻译目标。"
+                               Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+
+                    <Grid Margin="0,18,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="88"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="识别语言:"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Opacity="0.8"/>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding SourceLanguages}"
+                                  SelectedValue="{Binding MicSourceLanguage}"
+                                  SelectedValuePath="Code"
+                                  DisplayMemberPath="DisplayName"
+                                  TextSearch.TextPath="DisplayName"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                            <ComboBox.GroupStyle>
+                                <StaticResource ResourceKey="LanguageComboGroupStyle"/>
+                            </ComboBox.GroupStyle>
+                        </ComboBox>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="88"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="第一翻译:"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Opacity="0.8"/>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding TargetLanguages}"
+                                  SelectedValue="{Binding MicTargetTranslationLanguage}"
+                                  SelectedValuePath="Code"
+                                  DisplayMemberPath="DisplayName"
+                                  TextSearch.TextPath="DisplayName"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                            <ComboBox.GroupStyle>
+                                <StaticResource ResourceKey="LanguageComboGroupStyle"/>
+                            </ComboBox.GroupStyle>
+                        </ComboBox>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="88"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="第二翻译:"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Opacity="0.8"/>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding TargetLanguages}"
+                                  SelectedValue="{Binding MicTargetTranslationLanguage2}"
+                                  SelectedValuePath="Code"
+                                  DisplayMemberPath="DisplayName"
+                                  TextSearch.TextPath="DisplayName"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                            <ComboBox.GroupStyle>
+                                <StaticResource ResourceKey="LanguageComboGroupStyle"/>
+                            </ComboBox.GroupStyle>
+                        </ComboBox>
+                    </Grid>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="88"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="第三翻译:"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Opacity="0.8"/>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding TargetLanguages}"
+                                  SelectedValue="{Binding MicTargetTranslationLanguage3}"
+                                  SelectedValuePath="Code"
+                                  DisplayMemberPath="DisplayName"
+                                  TextSearch.TextPath="DisplayName"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                            <ComboBox.GroupStyle>
+                                <StaticResource ResourceKey="LanguageComboGroupStyle"/>
+                            </ComboBox.GroupStyle>
+                        </ComboBox>
+                    </Grid>
+                </StackPanel>
+            </materialDesign:Card>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="监听音频语言通道"
+                               Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                    <TextBlock Text="配置监听音频识别语言和三路翻译目标。"
+                               Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+
+                    <Grid Margin="0,18,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="88"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="识别语言:"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Opacity="0.8"/>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding SourceLanguages}"
+                                  SelectedValue="{Binding DesktopSourceLanguage}"
+                                  SelectedValuePath="Code"
+                                  DisplayMemberPath="DisplayName"
+                                  TextSearch.TextPath="DisplayName"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                            <ComboBox.GroupStyle>
+                                <StaticResource ResourceKey="LanguageComboGroupStyle"/>
+                            </ComboBox.GroupStyle>
+                        </ComboBox>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="88"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="第一翻译:"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Opacity="0.8"/>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding TargetLanguages}"
+                                  SelectedValue="{Binding DesktopTargetTranslationLanguage}"
+                                  SelectedValuePath="Code"
+                                  DisplayMemberPath="DisplayName"
+                                  TextSearch.TextPath="DisplayName"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                            <ComboBox.GroupStyle>
+                                <StaticResource ResourceKey="LanguageComboGroupStyle"/>
+                            </ComboBox.GroupStyle>
+                        </ComboBox>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="88"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="第二翻译:"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Opacity="0.8"/>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding TargetLanguages}"
+                                  SelectedValue="{Binding DesktopTargetTranslationLanguage2}"
+                                  SelectedValuePath="Code"
+                                  DisplayMemberPath="DisplayName"
+                                  TextSearch.TextPath="DisplayName"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                            <ComboBox.GroupStyle>
+                                <StaticResource ResourceKey="LanguageComboGroupStyle"/>
+                            </ComboBox.GroupStyle>
+                        </ComboBox>
+                    </Grid>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="88"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="第三翻译:"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Opacity="0.8"/>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding TargetLanguages}"
+                                  SelectedValue="{Binding DesktopTargetTranslationLanguage3}"
+                                  SelectedValuePath="Code"
+                                  DisplayMemberPath="DisplayName"
+                                  TextSearch.TextPath="DisplayName"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                            <ComboBox.GroupStyle>
+                                <StaticResource ResourceKey="LanguageComboGroupStyle"/>
+                            </ComboBox.GroupStyle>
+                        </ComboBox>
+                    </Grid>
+                </StackPanel>
+            </materialDesign:Card>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource TextSendTranslationSettings}"
+                               Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                    <TextBlock Text="{DynamicResource TextSendTranslationDescription}"
+                               Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+
+                    <Grid Margin="0,18,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="88"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{DynamicResource FirstTranslationLabel}"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Opacity="0.8"/>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding TargetLanguages}"
+                                  SelectedValue="{Binding TextSendTargetTranslationLanguage}"
+                                  SelectedValuePath="Code"
+                                  DisplayMemberPath="DisplayName"
+                                  TextSearch.TextPath="DisplayName"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                            <ComboBox.GroupStyle>
+                                <StaticResource ResourceKey="LanguageComboGroupStyle"/>
+                            </ComboBox.GroupStyle>
+                        </ComboBox>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="88"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{DynamicResource SecondTranslationLabel}"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Opacity="0.8"/>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding TargetLanguages}"
+                                  SelectedValue="{Binding TextSendTargetTranslationLanguage2}"
+                                  SelectedValuePath="Code"
+                                  DisplayMemberPath="DisplayName"
+                                  TextSearch.TextPath="DisplayName"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                            <ComboBox.GroupStyle>
+                                <StaticResource ResourceKey="LanguageComboGroupStyle"/>
+                            </ComboBox.GroupStyle>
+                        </ComboBox>
+                    </Grid>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="88"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{DynamicResource ThirdTranslationLabel}"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Opacity="0.8"/>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding TargetLanguages}"
+                                  SelectedValue="{Binding TextSendTargetTranslationLanguage3}"
+                                  SelectedValuePath="Code"
+                                  DisplayMemberPath="DisplayName"
+                                  TextSearch.TextPath="DisplayName"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                            <ComboBox.GroupStyle>
+                                <StaticResource ResourceKey="LanguageComboGroupStyle"/>
+                            </ComboBox.GroupStyle>
+                        </ComboBox>
+                    </Grid>
+                </StackPanel>
+            </materialDesign:Card>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}"
+                                 Visibility="{Binding IsAnyTranslationRouteUsingOpenAi, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource OpenAiConfigTitle}"
+                               Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                    <TextBlock Text="{DynamicResource OpenAiConfigDescription}"
+                               Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+
+                    <ComboBox Margin="0,18,0,0"
+                              ItemsSource="{Binding OpenAiPresetNames}"
+                              SelectedValue="{Binding SelectedOpenAiPreset}"
+                              Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                              materialDesign:HintAssist.Hint="{DynamicResource OpenAiPresetTemplate}"/>
+
+                    <PasswordBox x:Name="OpenAiApiKeyBox"
+                                 Margin="0,14,0,0"
+                                 PasswordChanged="OnOpenAiApiKeyChanged"
+                                 Style="{StaticResource MaterialDesignFloatingHintPasswordBox}"
+                                 materialDesign:TextFieldAssist.HasOutlinedTextField="True"
+                                 materialDesign:HintAssist.Hint="API Key"/>
+
+                    <TextBox Margin="0,14,0,0"
+                             Text="{Binding OpenAiModel}"
+                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                             materialDesign:HintAssist.Hint="{DynamicResource OpenAiModelHint}"/>
+
+                    <TextBox Margin="0,14,0,0"
+                             Text="{Binding OpenAiBaseUrl}"
+                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                             materialDesign:HintAssist.Hint="Base URL"/>
+
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding OpenAiTemperature}"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                 materialDesign:HintAssist.Hint="Temperature (0-2)"/>
+                        <TextBox Grid.Column="2"
+                                 Text="{Binding OpenAiMaxTokens}"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                 materialDesign:HintAssist.Hint="Max Tokens"/>
+                    </Grid>
+
+                    <TextBox Margin="0,14,0,0"
+                             Height="82"
+                             AcceptsReturn="True"
+                             VerticalScrollBarVisibility="Auto"
+                             Text="{Binding OpenAiExtraBody}"
+                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                             materialDesign:HintAssist.Hint="{DynamicResource OpenAiExtraBodyHint}"/>
+
+                    <TextBox Margin="0,14,0,0"
+                             Height="110"
+                             AcceptsReturn="True"
+                             VerticalScrollBarVisibility="Auto"
+                             Text="{Binding OpenAiSystemPrompt}"
+                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                             materialDesign:HintAssist.Hint="{DynamicResource OpenAiSystemPromptHint}"/>
+                </StackPanel>
+            </materialDesign:Card>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource DisplayFilterTitle}"
+                               Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                    <TextBlock Text="{DynamicResource DisplayFilterDescription}"
+                               Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+
+                    <WrapPanel Margin="0,18,0,0">
+                        <CheckBox Content="{DynamicResource 'Orig'}"
+                                  IsChecked="{Binding MainWindowShowOriginal}"
+                                  Margin="0,0,16,8"/>
+                        <CheckBox Content="{DynamicResource 'T1'}"
+                                  IsChecked="{Binding MainWindowShowTranslation1}"
+                                  Margin="0,0,16,8"/>
+                        <CheckBox Content="{DynamicResource 'T2'}"
+                                  IsChecked="{Binding MainWindowShowTranslation2}"
+                                  Margin="0,0,16,8"/>
+                        <CheckBox Content="{DynamicResource 'T3'}"
+                                  IsChecked="{Binding MainWindowShowTranslation3}"
+                                  Margin="0,0,16,8"/>
+                    </WrapPanel>
+
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Margin="0,0,18,0">
+                            <TextBlock Text="{DynamicResource FilterEmojiTitle}"
+                                       Style="{StaticResource SettingsRowTitleTextStyle}"/>
+                            <TextBlock Text="{DynamicResource FilterEmojiDescription}"
+                                       Style="{StaticResource SettingsRowDescriptionTextStyle}"/>
+                        </StackPanel>
+                        <ToggleButton Grid.Column="1"
+                                      IsChecked="{Binding FilterEmoji}"
+                                      Style="{StaticResource SettingsToggleButtonStyle}"/>
+                    </Grid>
+                </StackPanel>
+            </materialDesign:Card>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

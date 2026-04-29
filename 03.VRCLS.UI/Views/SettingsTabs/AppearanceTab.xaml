@@ -1,0 +1,147 @@
+<UserControl x:Class="VRCLS.UI.Views.SettingsTabs.AppearanceTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  Padding="28">
+        <StackPanel Width="{Binding RelativeSource={RelativeSource AncestorType=ScrollViewer}, Path=ViewportWidth}"
+                    MaxWidth="1120">
+            <TextBlock Text="外观与工具"
+                       Style="{StaticResource MaterialDesignHeadline5TextBlock}"/>
+            <TextBlock Text="界面语言、窗口尺寸和辅助工具统一放在结构化卡片里。"
+                       Margin="0,8,0,22"
+                       FontSize="13"
+                       Opacity="0.68"
+                       TextWrapping="Wrap"/>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource AppearanceUiSettingsTitle}"
+                               Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                    <TextBlock Text="{DynamicResource AppearanceUiSettingsDescription}"
+                               Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+
+                    <Grid Margin="0,18,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="180"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="UI 界面语言"
+                                   Style="{StaticResource SettingsRowTitleTextStyle}"
+                                   VerticalAlignment="Center"/>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding UiLanguages}"
+                                  SelectedValue="{Binding UiLanguage}"
+                                  SelectedValuePath="Code"
+                                  DisplayMemberPath="DisplayName"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}"/>
+                    </Grid>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="主窗口默认尺寸"
+                                       Style="{StaticResource SettingsRowTitleTextStyle}"/>
+                            <TextBlock Text="修改后重启生效。"
+                                       Style="{StaticResource SettingsRowDescriptionTextStyle}"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1"
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                            <TextBox Text="{Binding OverlayWidth}"
+                                     materialDesign:HintAssist.Hint="宽 (如 800)"
+                                     Width="88"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                     Margin="0,0,12,0"/>
+                            <TextBlock Text="×"
+                                       VerticalAlignment="Center"
+                                       FontWeight="Bold"
+                                       Opacity="0.5"
+                                       Margin="0,0,12,0"/>
+                            <TextBox Text="{Binding OverlayHeight}"
+                                     materialDesign:HintAssist.Hint="高 (如 500)"
+                                     Width="88"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </materialDesign:Card>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,18">
+                        <ToggleButton DockPanel.Dock="Right"
+                                      IsChecked="{Binding CopyBox}"
+                                      Style="{StaticResource SettingsToggleButtonStyle}"/>
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource ClipboardAssistTitle}"
+                                       Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                            <TextBlock Text="{DynamicResource ClipboardAssistDescription}"
+                                       Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <WrapPanel>
+                        <CheckBox Content="{DynamicResource 'Orig'}"
+                                  IsChecked="{Binding CopyOriginal}"
+                                  Margin="0,0,16,8"/>
+                        <CheckBox Content="{DynamicResource 'T1'}"
+                                  IsChecked="{Binding CopyTranslation1}"
+                                  Margin="0,0,16,8"/>
+                        <CheckBox Content="{DynamicResource 'T2'}"
+                                  IsChecked="{Binding CopyTranslation2}"
+                                  Margin="0,0,16,8"/>
+                        <CheckBox Content="{DynamicResource 'T3'}"
+                                  IsChecked="{Binding CopyTranslation3}"
+                                  Margin="0,0,16,8"/>
+                    </WrapPanel>
+                </StackPanel>
+            </materialDesign:Card>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource RuntimeLogs}"
+                               Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                    <TextBlock Text="保留日志查看，并把刷新、自动刷新和打开日志文件放在同一块。"
+                               Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+
+                    <WrapPanel Margin="0,18,0,0"
+                               ItemHeight="40">
+                        <TextBlock Text="{DynamicResource LogAutoRefresh}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,8,8"/>
+                        <ToggleButton IsChecked="{Binding IsLogAutoRefreshEnabled}"
+                                      Style="{StaticResource SettingsToggleButtonStyle}"
+                                      Margin="0,0,16,8"/>
+                        <Button Content="{DynamicResource Refresh}"
+                                Command="{Binding RefreshLogCommand}"
+                                Style="{StaticResource MaterialDesignOutlinedButton}"
+                                Margin="0,0,8,8"/>
+                        <Button Content="{DynamicResource OpenLogFile}"
+                                Command="{Binding OpenLogFileCommand}"
+                                Style="{StaticResource MaterialDesignOutlinedButton}"
+                                Margin="0,0,8,8"/>
+                    </WrapPanel>
+
+                    <TextBlock Text="{Binding CurrentSessionLogPath}"
+                               Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                               Margin="0,10,0,0"/>
+
+                    <TextBox Margin="0,14,0,0"
+                             Text="{Binding CurrentSessionLogText, Mode=OneWay}"
+                             IsReadOnly="True"
+                             AcceptsReturn="True"
+                             Height="260"
+                             VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Auto"
+                             Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                </StackPanel>
+            </materialDesign:Card>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

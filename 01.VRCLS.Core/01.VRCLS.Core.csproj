@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>VRCLS.Core</RootNamespace>
+    <AssemblyName>VRCLS.Core</AssemblyName>
+    <Nullable>enable</Nullable>
+    <Platforms>AnyCPU;x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" Version="10.0.1" />
+    <PackageReference Include="Serilog" Version="4.3.0" />
+  </ItemGroup>
+
+</Project>

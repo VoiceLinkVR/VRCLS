@@ -1,0 +1,441 @@
+# 2026-03-09 用户中心发电流程最终方案
+
+## 一、目标
+
+- 测试账户登录时，必须引导填写正式账号密码后再发电。
+- 用户过期后允许降档。
+- 金额步进固定为 `5` 元。
+- 每 `5` 元提升的资源数是固定值，但该值可能是 `1500`，也可能是 `2000`。
+- 资源增量值、档位计算、升级/降档边界、是否包含禁用额度，全部交由后端统一处理。
+- 前端只负责：引导、展示、输入限制、提交、错误提示。
+
+---
+
+## 二、适用范围
+
+当前客户端相关入口在：
+
+- `03.VRCLS.UI/ViewModels/SettingsViewModel.cs`
+  - 发电创建逻辑：约 `CreateDonationLinkAsync()`
+  - 账户用量查询逻辑：约 `QueryAccountUsageAsync()`
+  - 登录态展示逻辑：约 `ApplyAuthState()`
+  - 发电区初始化逻辑：约 `LoadFromConfig()`
+- `02.VRCLS.Services/Auth/BackendAuthService.cs`
+  - 测试账户定义与重置逻辑
+
+---
+
+## 三、最终业务规则
+
+### 3.1 登录态与发电目标账号分离
+
+- App 当前登录可以是测试账户。
+- 发电目标账号必须是正式账号。
+- 测试账户不能直接作为发电目标。
+
+### 3.2 金额步进固定
+
+- `price_step = 5`
+- 所有可选金额必须满足 `5` 元步进。
+
+### 3.3 资源增量规则固定，但值由后端配置
+
+- `resource_increment_per_step` 为固定值。
+- 该值可能为 `1500`，也可能为 `2000`。
+- 前端不得写死 `1500/day` 之类的规则。
+
+### 3.4 操作类型
+
+- `renew`：续费
+- `upgrade`：升档
+- `downgrade`：降档
+
+### 3.5 是否允许降档
+
+- 未过期：不允许降档。
+- 已过期：允许降档。
+
+### 3.6 档位、额度、升级边界口径
+
+- 全部以后端返回为准。
+- 包括“禁用额度是否参与判断”。
+- 前端不自行推导“当前是几元档”。
+
+### 3.7 过期用户
+
+- 允许后端返回更低档位供重新开通。
+- 前端只按后端给出的降档范围展示。
+
+---
+
+## 四、统一业务描述
+
+建议项目内部统一使用以下口径：
+
+> 金额步进固定为 5 元；每 5 元对应固定资源增量，具体增量值由后端配置并统一下发；账号当前档位、升级边界、降档边界、禁用额度处理均由后端统一计算，前端仅负责展示和提交。
+
+---
+
+## 五、后端最终方案
+
+### 5.1 新增统一预检接口
+
+- 新增接口：`POST /api/user-center/payment-guide`
+
+### 5.2 接口目标
+
+- 校验正式账号密码。
+- 判断是否测试账户。
+- 判断是否过期。
+- 统一计算：
+  - 当前展示档位
+  - 当前展示资源
+  - 允许的操作集合
+  - 每种操作允许的金额范围
+  - 默认金额
+  - 步进值
+  - 资源增量规则说明
+- 返回一个短期有效的 `guide_token`，供后续下单复核。
+
+### 5.3 请求字段
+
+```json
+{
+  "username": "string",
+  "password": "string"
+}
+```
+
+### 5.4 响应字段最终稿
+
+```json
+{
+  "username": "user_a",
+  "is_test_user": false,
+  "is_expired": true,
+  "status": "expired",
+  "currency": "CNY",
+  "price_step": 5,
+  "resource_increment_per_step": 2000,
+  "display_plan_name": "10元档",
+  "display_monthly_price": 10,
+  "display_resource_quota": 4000,
+  "display_resource_summary": "当前资源额度 4000/日",
+  "anchor_reason": "当前档位与历史权益（含禁用额度）已由服务端统一计算",
+  "allowed_actions": ["renew", "upgrade", "downgrade"],
+  "renew_option": {
+    "allowed": true,
+    "readonly": true,
+    "default_monthly_price": 10,
+    "min_monthly_price": 10,
+    "max_monthly_price": 10,
+    "step": 5,
+    "target_resource_quota_preview": 4000
+  },
+  "upgrade_option": {
+    "allowed": true,
+    "default_monthly_price": 15,
+    "min_monthly_price": 15,
+    "max_monthly_price": 100,
+    "step": 5,
+    "target_resource_quota_preview": 6000
+  },
+  "downgrade_option": {
+    "allowed": true,
+    "default_monthly_price": 5,
+    "min_monthly_price": 5,
+    "max_monthly_price": 5,
+    "step": 5,
+    "target_resource_quota_preview": 2000
+  },
+  "guide_token": "opaque_token",
+  "guide_expires_in_seconds": 300
+}
+```
+
+### 5.5 字段解释
+
+- `price_step`
+  - 固定为 `5`
+- `resource_increment_per_step`
+  - 每 `5` 元提升多少资源
+  - 可能是 `1500`，也可能是 `2000`
+- `display_monthly_price`
+  - 当前账号展示档位
+- `display_resource_quota`
+  - 当前账号展示资源额度
+- `allowed_actions`
+  - 当前账号允许的操作
+- `renew_option`
+  - 续费时可选金额范围
+- `upgrade_option`
+  - 升级时可选金额范围
+- `downgrade_option`
+  - 降档时可选金额范围，仅过期后允许
+- `anchor_reason`
+  - 解释为什么这样引导，便于前端展示
+- `guide_token`
+  - 下单时带回去，后端做最终复核
+- `renew_option.readonly`
+  - 当 `min_monthly_price` 与 `max_monthly_price` 相同，且续费价不允许手动调整时，应为 `true`
+
+### 5.6 后端计算职责
+
+- 后端统一实现一个服务，例如：`ResolvePaymentGuide(username, password)`
+- 负责：
+  - 校验账号密码
+  - 判断测试账户
+  - 判断是否过期
+  - 聚合当前权益、历史权益、禁用权益
+  - 统一算出展示档位与允许操作
+- 特别说明：
+  - “包括被禁用额度”的判断只在后端做
+  - “过期后允许降档”也只由后端决定
+  - 前端不参与任何业务推导
+
+### 5.7 资源规则
+
+- 后端内部可采用统一公式：
+
+```text
+quota = base + step_count * resource_increment_per_step
+```
+
+- 其中：
+  - `price_step = 5`
+  - `resource_increment_per_step` 由配置决定
+- 但这只是后端内部实现示意，不构成前后端契约。
+- 前端不依赖这个公式，只用接口返回值。
+
+### 5.8 生成支付链接接口改造
+
+- 保留现有接口：`POST /api/user-center/payment-link`
+- 新入参建议：
+
+```json
+{
+  "username": "string",
+  "password": "string",
+  "action": "renew|upgrade|downgrade",
+  "target_monthly_price": 15,
+  "months": 1,
+  "guide_token": "opaque_token"
+}
+```
+
+- `custom_price = target_monthly_price * months` 由后端自行计算并校验。
+- 前端不再上传最终总价作为权威值，避免单价与总价不一致。
+
+### 5.9 `payment-link` 后端强校验
+
+- 必须再次校验：
+  - 账号密码是否仍有效
+  - 是否测试账户
+  - `action` 是否允许
+  - `target_monthly_price` 是否在 guide 允许范围内
+  - 金额是否符合 `price_step = 5`
+  - 账号状态是否变化
+- 如果 guide 已过期或状态已变化，返回明确错误码，让前端重新读取方案。
+
+---
+
+## 六、后端错误码最终稿
+
+- `PAYMENT_GUIDE_INVALID_CREDENTIALS`
+- `PAYMENT_GUIDE_TEST_ACCOUNT_FORBIDDEN`
+- `PAYMENT_GUIDE_ACTION_NOT_ALLOWED`
+- `PAYMENT_GUIDE_PRICE_OUT_OF_RANGE`
+- `PAYMENT_GUIDE_PRICE_STEP_INVALID`
+- `PAYMENT_GUIDE_STALE`
+- `PAYMENT_GUIDE_ACCOUNT_STATE_CHANGED`
+- `PAYMENT_GUIDE_INTERNAL_ERROR`
+
+---
+
+## 七、前端最终方案
+
+### 7.1 页面结构
+
+发电区拆成两段：
+
+#### 账号验证区
+
+- 正式账号输入框
+- 正式密码输入框
+- `读取当前方案` 按钮
+
+#### 支付方案区
+
+- 当前方案展示
+- 可选操作：续费 / 升级 / 降档
+- 月数选择
+- 金额选择器
+- 资源预览
+- `生成发电链接` 按钮
+
+### 7.2 测试账户交互
+
+- 当前登录为测试账户时：
+  - 不自动把 `testuser` 填到发电区
+  - 顶部显示提示：
+    - `当前登录的是测试账户，仅用于体验。请填写正式账号和密码后再继续。`
+  - 未完成正式账号预检前，禁止生成支付链接
+
+### 7.3 正式账户交互
+
+- 当前登录为正式账户时：
+  - 可以自动带入登录区账号密码到“账号验证区”
+  - 可自动触发一次 `payment-guide`
+  - 用户修改账号或密码后，guide 立即失效，需要重新读取
+
+### 7.4 金额控件
+
+- 不建议继续自由文本输入金额
+- 推荐改成：
+  - 步进器
+  - 或后端范围控制的数字输入框
+- 前端仅做弱校验：
+  - 是否数字
+  - 是否符合 `price_step`
+  - 是否在 `min/max` 内
+- 最终以后端校验为准
+
+### 7.5 续费/升级/降档展示规则
+
+- `renew_option.allowed = true` 时显示续费
+- `upgrade_option.allowed = true` 时显示升级
+- `downgrade_option.allowed = true` 时显示降档
+- 如果账号未过期，通常不显示降档入口
+- 如果账号已过期且后端允许，则显示降档入口
+
+---
+
+## 八、前端 ViewModel 改造项
+
+当前需要重点改的逻辑点：
+
+- `03.VRCLS.UI/ViewModels/SettingsViewModel.cs`
+  - `CreateDonationLinkAsync()`
+  - `QueryAccountUsageAsync()`
+  - `ApplyAuthState()`
+  - `LoadFromConfig()`
+
+建议新增状态：
+
+- `IsCurrentLoginTestAccount`
+- `NeedsFormalDonationCredentials`
+- `IsPaymentGuideLoading`
+- `HasPaymentGuide`
+- `PaymentGuideStatus`
+- `PaymentGuideToken`
+- `AllowedActions`
+- `DisplayPlanName`
+- `DisplayMonthlyPrice`
+- `DisplayResourceQuota`
+- `DisplayResourceSummary`
+- `PriceStep`
+- `ResourceIncrementPerStep`
+- `SelectedPaymentAction`
+- `TargetMonthlyPrice`
+- `CanCreateDonationLink`
+
+建议新增命令：
+
+- `LoadPaymentGuideCommand`
+- `RefreshPaymentGuideCommand`
+- `CreateDonationLinkCommand`
+
+---
+
+## 九、前端文案最终稿
+
+- 测试账户提示：
+  - `当前为测试账户，请填写正式账号和密码后再发电。`
+- 读取方案中：
+  - `正在读取当前账号可用方案...`
+- 读取成功：
+  - `当前方案已更新，请按服务端返回的可选档位操作。`
+- 过期允许降档：
+  - `账号已过期，可按低档重新开通。`
+- guide 过期：
+  - `当前方案已过期，请重新读取。`
+- 状态变化：
+  - `账号状态已变化，请重新读取当前方案。`
+- 金额非法：
+  - `金额必须按 5 元步进。`
+- 资源说明：
+  - `每 5 元对应固定资源增量，具体规则以服务端当前配置为准。`
+
+---
+
+## 十、前端提交时序
+
+```mermaid
+flowchart TD
+    A["进入用户中心"] --> B{"当前登录是否测试账户"}
+    B -->|是| C["提示填写正式账号密码"]
+    B -->|否| D["可带入正式账号并读取方案"]
+    C --> E["点击 读取当前方案"]
+    D --> E
+    E --> F["POST /api/user-center/payment-guide"]
+    F --> G["后端返回档位、资源、可选操作、步进、guide_token"]
+    G --> H["前端展示续费/升级/降档"]
+    H --> I["用户选择月数与金额"]
+    I --> J["POST /api/user-center/payment-link"]
+    J --> K["后端复核 guide_token 与账号状态"]
+    K --> L["返回 donation_url"]
+```
+
+---
+
+## 十一、验收标准最终稿
+
+- 测试账户登录时，不能直接生成支付链接。
+- 必须填写正式账号密码并读取方案成功后，才允许发电。
+- 所有价格只能按 `5` 元步进。
+- 前端不再出现写死 `1500/day` 的逻辑。
+- `resource_increment_per_step` 由后端返回，可能是 `1500` 或 `2000`。
+- 是否显示降档入口，以后端返回为准。
+- 账号未过期时，默认不允许降档。
+- 账号过期后，如后端返回允许降档，则前端正常展示。
+- “包含禁用额度”的判断由后端统一处理，前端不做推导。
+- 下单前后端会再次校验，避免预检后状态变化导致误下单。
+
+---
+
+## 十二、测试用例最终稿
+
+- 测试账户登录，未填正式账号密码，点击发电，必须被拦截。
+- 测试账户登录，填正式账号密码并读取方案成功，可进入支付流程。
+- 正式账户未过期，返回仅 `renew + upgrade`，前端不显示降档。
+- 正式账户已过期，返回 `renew + upgrade + downgrade`，前端显示降档。
+- 后端返回 `resource_increment_per_step = 1500`，页面显示正常。
+- 后端返回 `resource_increment_per_step = 2000`，页面显示正常。
+- 输入金额不是 `5` 的倍数，前端拦截。
+- 即使前端绕过，后端仍能拦截。
+- guide 成功后，账号状态变化，再提交时返回 stale 类错误。
+- 历史存在禁用权益时，前端仍只展示后端结果，不自行计算。
+
+---
+
+## 十三、开发顺序最终稿
+
+- 第 1 步：后端实现 `payment-guide`
+- 第 2 步：后端把 `payment-link` 改成基于 `guide_token` 复核
+- 第 3 步：前端拆分测试账户引导态与正式账号验证态
+- 第 4 步：前端接入 guide 渲染支付方案
+- 第 5 步：前后端联调错误码与文案
+- 第 6 步：回归测试测试账户、续费、升级、过期降档、guide 过期场景
+
+---
+
+## 十四、最终结论
+
+- 这次改造的关键不是前端多写几个判断，而是把“档位计算权”彻底收口到后端。
+- 前端只需要记住三件事：
+  - 测试账户不能直接发电
+  - 价格按 `5` 元步进
+  - 一切可选金额、资源、升级/降档边界都以后端 guide 为准
+> 注意：本文件仅保留为历史方案，不再作为当前客户端实施依据。
+> 当前客户端最终口径以 `D:\git\gitlab\VRCLS-CSharp\docs\2026-04-06_控制台授权登录接入说明.md` 为准。
+> 最新结论：客户端不再承接本地发电下单与 legacy 登录，正式账户相关能力统一由官网用户中心处理。

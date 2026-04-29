@@ -1,0 +1,3 @@
+[submodule "ref/translators"]
+	path = ref/translators
+	url = ssh://git@ssh.github.com/UlionTse/translators.git
