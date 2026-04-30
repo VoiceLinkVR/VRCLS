@@ -1,139 +1,139 @@
 # VRCLS
 
-VRCLS is a Windows desktop client for VRChat live captions, speech recognition, translation, text-to-speech, OSC control, and SteamVR overlay display. This repository contains the C#/.NET 8 WPF implementation.
+语言：简体中文 | [English](README.en.md)
 
-The current desktop version is no longer just a migration skeleton: the main WPF app, settings UI, audio pipelines, backend auth, update flow, translation routing, TTS routing, OSC output, and optional SteamVR overlay integration are implemented in this codebase.
+VRCLS 是一个面向 VRChat 的 Windows 桌面客户端，用于实时字幕、语音识别、翻译、文字转语音、OSC 控制和 SteamVR 叠加显示。本仓库是 C# / .NET 8 / WPF 实现。
 
-## Features
+当前桌面版已经不是迁移骨架：主 WPF 应用、设置界面、音频管线、后端鉴权、更新流程、翻译路由、TTS 路由、OSC 输出和可选 SteamVR Overlay 集成都在这个代码库里。
 
-- Microphone, desktop loopback, and process-targeted audio capture.
-- Silero VAD based speech segmentation.
-- Local Sherpa-ONNX recognition when local models are available.
-- Remote FastAPI recognition and translation through the configured VRCLS backend.
-- Multi-target translation output for microphone and desktop routes.
-- Translation engines through backend services, OpenAI-compatible APIs, and the packaged Python `translators` runtime.
-- OSC output for VRChat chatbox and avatar parameter control.
-- TTS through backend providers, Qwen-style voice aliases, and local Windows `System.Speech`.
-- Edge TTS voice catalog from `音色.json`.
-- SteamVR text overlay through the minimal OpenVR files committed under `ref/openvr`.
-- Photo/OCR translation workflow.
-- User center, website authorization flow, account status, donation/entitlement UI, and rate-limit feedback.
-- NetSparkle app updates, model catalog updates, and translation profile hot update support.
+## 功能
 
-## Repository Layout
+- 麦克风、桌面环回、指定进程音频采集。
+- 基于 Silero VAD 的语音分段。
+- 本地模型可用时使用 Sherpa-ONNX 本地识别。
+- 通过配置的 VRCLS 后端进行远端 FastAPI 识别和翻译。
+- 麦克风和桌面音频链路支持多目标语言翻译输出。
+- 支持后端翻译、OpenAI 兼容接口，以及打包的 Python `translators` 运行时。
+- 通过 OSC 输出到 VRChat 聊天框和 Avatar 参数。
+- 支持后端 TTS、Qwen 风格音色别名，以及 Windows 本地 `System.Speech`。
+- 从 `音色.json` 加载 Edge TTS 音色列表。
+- 通过 `ref/openvr` 中提交的最小 OpenVR 文件实现 SteamVR 文本 Overlay。
+- 支持拍照/OCR 翻译流程。
+- 包含用户中心、网页登录授权、账号状态、发电/权益界面和限流反馈。
+- 支持 NetSparkle 应用更新、模型目录更新和翻译配置热更新。
+
+## 仓库结构
 
 ```text
-01.VRCLS.Core/        Shared models, interfaces, config, events, helpers
-02.VRCLS.Services/    Audio, auth, recognition, translation, TTS, update, OSC, SteamVR services
-03.VRCLS.UI/          WPF app, views, view models, resources, UI helpers
-docs/                 Design notes and implementation notes
-scripts/              Build, publish, installer, update manifest, and translator tooling
-tests/                Console and backend smoke test projects
-ref/openvr/           Minimal OpenVR files required by this app
-ref/translators/      Optional translators submodule pointer
+01.VRCLS.Core/        共享模型、接口、配置、事件、工具类
+02.VRCLS.Services/    音频、鉴权、识别、翻译、TTS、更新、OSC、SteamVR 服务
+03.VRCLS.UI/          WPF 应用、视图、ViewModel、资源和 UI 辅助类
+docs/                 设计说明和实现说明
+scripts/              构建、发布、安装包、更新清单、翻译运行时工具
+tests/                控制台测试和后端冒烟测试项目
+ref/openvr/           本项目实际需要的最小 OpenVR 文件
+ref/translators/      可选 translators 子模块指针
 ```
 
-## Requirements
+## 环境要求
 
-- Windows 10/11.
-- .NET 8 SDK.
-- Visual Studio 2022 or another editor that supports WPF/.NET desktop development.
-- Microphone permission and VRChat OSC enabled for the full runtime flow.
-- Python is only required when building the packaged translator runtime or release artifacts.
-- Inno Setup is only required when building the installer.
+- Windows 10/11。
+- .NET 8 SDK。
+- Visual Studio 2022，或其他支持 WPF / .NET 桌面开发的编辑器。
+- 完整运行流程需要麦克风权限，并在 VRChat 中启用 OSC。
+- 只有构建打包版翻译运行时或发布产物时才需要 Python。
+- 只有构建安装包时才需要 Inno Setup。
 
-## Build
+## 构建
 
 ```powershell
-git clone git@github.com:VoiceLinkVR/VRCLS.git
-cd VRCLS
 dotnet restore VRCLS.sln
 dotnet build VRCLS.sln
 ```
 
-The solution build currently emits nullable warnings from Valve's generated OpenVR C# binding in `ref/openvr/headers/openvr_api.cs`. These warnings are expected and do not block the build.
+当前解决方案构建会从 Valve 生成的 OpenVR C# 绑定 `ref/openvr/headers/openvr_api.cs` 输出 nullable 警告。这些警告是已知项，不会阻断构建。
 
-Run the desktop app:
+运行桌面应用：
 
 ```powershell
 dotnet run --project 03.VRCLS.UI/03.VRCLS.UI.csproj
 ```
 
-Run the console test project:
+运行控制台测试项目：
 
 ```powershell
 dotnet run --project tests/VRCLS.ConsoleTest/VRCLS.ConsoleTest.csproj
 ```
 
-The backend smoke test project is present under `tests/VRCLS.BackendSmoke/`, but it is not currently included in `VRCLS.sln`.
+`tests/VRCLS.BackendSmoke/` 下存在后端冒烟测试项目，但它当前没有加入 `VRCLS.sln`。
 
-## Models
+## 模型
 
-The repository keeps large recognition model packages out of Git. The app resolves models from several locations:
+仓库不会提交大型识别模型包。应用会从以下位置解析模型：
 
-- `pre-models/` beside the repository or published app.
-- `models/` beside the executable.
-- configured paths in `%APPDATA%\VRCLS\config.json`.
-- model update downloads from the configured update server.
+- 仓库或发布应用旁边的 `pre-models/`。
+- 可执行文件旁边的 `models/`。
+- `%APPDATA%\VRCLS\config.json` 中配置的路径。
+- 从配置的更新服务器下载的模型。
 
-A small Silero VAD model is committed for development fallback. Larger Sherpa-ONNX ASR models are intentionally excluded and should be downloaded through the update flow or placed under `pre-models/`.
+仓库中提交了一个小型 Silero VAD 模型作为开发兜底。较大的 Sherpa-ONNX ASR 模型会被排除在 Git 之外，应通过更新流程下载，或手动放到 `pre-models/`。
 
-## Configuration
+## 配置
 
-Runtime configuration is stored at:
+运行时配置保存在：
 
 ```text
 %APPDATA%\VRCLS\config.json
 ```
 
-Important defaults:
+重要默认值：
 
-- Backend base URL: `https://www.voicelinkvr.top`
-- Static update server: `https://cloudflarestorage.boyqiu001.top/`
-- App update feed: `https://cloudflarestorage.boyqiu001.top/app-releases/appcast.xml`
-- Default application audio target process: `VRChat`
-- Default TTS provider: `qwen`
+- 后端基础地址：`https://www.voicelinkvr.top`
+- 静态更新服务器：`https://cloudflarestorage.boyqiu001.top/`
+- 应用更新 feed：`https://cloudflarestorage.boyqiu001.top/app-releases/appcast.xml`
+- 默认应用音频目标进程：`VRChat`
+- 默认 TTS provider：`qwen`
 
-Do not commit local `.env`, publish presets, generated update buckets, local model directories, logs, or `tools/translator` output. These are ignored by `.gitignore`.
+不要提交本地 `.env`、发布预设、生成的更新 bucket、本地模型目录、日志或 `tools/translator` 输出。这些内容已被 `.gitignore` 排除。
 
-## Publishing
+## 发布
 
-Standard self-contained publish:
+标准自包含发布：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\publish.ps1 -Configuration Release -Runtime win-x64 -Zip
 ```
 
-Installer build:
+构建安装包：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\build-installer.ps1 -InternalVersion 0.7.0.123 -DisplayVersion 0.7.0-beta23
 ```
 
-The publish script builds the Python translator runtime into `tools/translator`, publishes the WPF app, strips large model files from publish output, and optionally restores a bundled VAD model from `pre-models/silero_vad.onnx`.
+发布脚本会构建 Python 翻译运行时到 `tools/translator`，发布 WPF 应用，移除大型模型文件，并在存在 `pre-models/silero_vad.onnx` 时把 VAD 模型恢复到发布输出。
 
-## Translator Runtime
+## 翻译运行时
 
-The app can route translation through a packaged Python runtime based on the `translators` package. To build it manually:
+应用可以通过基于 Python `translators` 包的打包运行时执行翻译。手动构建命令：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\build_translator.ps1
 ```
 
-Generated files land in `tools/translator/` and are intentionally ignored by Git.
+生成文件会落在 `tools/translator/`，该目录不会提交到 Git。
 
-## Update Assets
+## 更新资源
 
-The update scripts generate appcast, model catalog, and translation profile artifacts for static hosting:
+以下脚本用于生成 appcast、模型目录和翻译配置等静态托管资源：
 
 - `scripts/build-update-manifest.ps1`
 - `scripts/generate_bucket_layout.py`
 - `scripts/generate_bucket_layout_gui.py`
 
-Generated buckets such as `bucket-generated/` are local artifacts and should not be committed.
+`bucket-generated/` 等生成目录是本地产物，不应提交。
 
-## License
+## 开源协议
 
-VRCLS is licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE).
+VRCLS 使用 Apache License, Version 2.0。详见 [LICENSE](LICENSE)。
 
-Third-party dependencies, OpenVR files, NuGet packages, and Python packages remain under their own licenses.
+第三方依赖、OpenVR 文件、NuGet 包和 Python 包仍遵循各自的许可证。
