@@ -1323,6 +1323,12 @@ namespace VRCLS.UI
                 return "zh-CN";
             }
 
+            if (v.StartsWith("ja", StringComparison.OrdinalIgnoreCase) ||
+                v.StartsWith("jp", StringComparison.OrdinalIgnoreCase))
+            {
+                return "ja-JP";
+            }
+
             return "zh-CN";
         }
 
@@ -1398,6 +1404,13 @@ namespace VRCLS.UI
                 merged.Add(new ResourceDictionary
                 {
                     Source = new Uri("Resources/Strings.en.xaml", UriKind.Relative)
+                });
+            }
+            else if (normalized.StartsWith("ja", StringComparison.OrdinalIgnoreCase))
+            {
+                merged.Add(new ResourceDictionary
+                {
+                    Source = new Uri("Resources/Strings.ja.xaml", UriKind.Relative)
                 });
             }
         }

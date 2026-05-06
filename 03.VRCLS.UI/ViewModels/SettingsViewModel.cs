@@ -480,6 +480,7 @@ namespace VRCLS.UI.ViewModels
             TranslationProfileVersion = _config.TranslationProfileVersion;
             RefreshDesktopAudioDevices();
             RefreshTtsOutputDevices();
+            RefreshUiLanguageOptions();
             RefreshLocalizedOptionCollections();
             LoadFromConfig();
             ApplyLogAutoRefreshState();
@@ -1484,11 +1485,15 @@ namespace VRCLS.UI.ViewModels
             return string.Equals(App.NormalizeUiLanguage(_uiLanguage), "en-US", StringComparison.OrdinalIgnoreCase);
         }
 
+        private bool IsJapaneseUiLanguage()
+        {
+            return string.Equals(App.NormalizeUiLanguage(_uiLanguage), "ja-JP", StringComparison.OrdinalIgnoreCase);
+        }
+
         private void RefreshLocalizedOptionCollections()
         {
             RefreshActivationMethodOptions();
             RefreshTranslatorRegionOptions();
-            RefreshUiLanguageOptions();
             RefreshDonationActions();
             RefreshRecognitionLanguageOptions();
             RefreshTranslationLanguageOptions();
@@ -1517,8 +1522,9 @@ namespace VRCLS.UI.ViewModels
         private void RefreshUiLanguageOptions()
         {
             UiLanguages.Clear();
-            UiLanguages.Add(new LanguageOption("zh-CN", GetUiString("UiLanguage_zh-CN", "中文")));
-            UiLanguages.Add(new LanguageOption("en-US", GetUiString("UiLanguage_en-US", "English")));
+            UiLanguages.Add(new LanguageOption("zh-CN", "中文"));
+            UiLanguages.Add(new LanguageOption("en-US", "English"));
+            UiLanguages.Add(new LanguageOption("ja-JP", "日本語"));
         }
 
         private async Task CheckAppUpdateAsync()
@@ -6187,6 +6193,11 @@ public void SyncFromMainViewModel(MainViewModel mainViewModel)
                 return SpecialEnglishTranslationLanguageNames.TryGetValue(code, out var englishDisplayName)
                     ? englishDisplayName
                     : null;
+            }
+
+            if (IsJapaneseUiLanguage())
+            {
+                return null;
             }
 
             if (!string.IsNullOrWhiteSpace(trimmedFallback)

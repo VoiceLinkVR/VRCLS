@@ -118,7 +118,7 @@
             <StackPanel Grid.Column="0"
                         VerticalAlignment="Center"
                         Margin="0,0,20,0">
-                <TextBlock Text="Current selection"
+                <TextBlock Text="{DynamicResource EdgeTtsVoicePickerCurrentSelection}"
                            Opacity="0.6"
                            FontSize="12"/>
                 <TextBox x:Name="VoiceInputBox"

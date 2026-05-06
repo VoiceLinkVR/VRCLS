@@ -7,9 +7,9 @@
                   Padding="28">
         <StackPanel Width="{Binding RelativeSource={RelativeSource AncestorType=ScrollViewer}, Path=ViewportWidth}"
                     MaxWidth="1120">
-            <TextBlock Text="外观与工具"
+            <TextBlock Text="{DynamicResource AppearanceTabTitle}"
                        Style="{StaticResource MaterialDesignHeadline5TextBlock}"/>
-            <TextBlock Text="界面语言、窗口尺寸和辅助工具统一放在结构化卡片里。"
+            <TextBlock Text="{DynamicResource AppearanceTabDescription}"
                        Margin="0,8,0,22"
                        FontSize="13"
                        Opacity="0.68"
@@ -27,12 +27,12 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="180"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="UI 界面语言"
+                        <TextBlock Text="{DynamicResource UiLanguageTitle}"
                                    Style="{StaticResource SettingsRowTitleTextStyle}"
                                    VerticalAlignment="Center"/>
                         <ComboBox Grid.Column="1"
                                   ItemsSource="{Binding UiLanguages}"
-                                  SelectedValue="{Binding UiLanguage}"
+                                  SelectedValue="{Binding UiLanguage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                   SelectedValuePath="Code"
                                   DisplayMemberPath="DisplayName"
                                   Style="{StaticResource MaterialDesignOutlinedComboBox}"/>
@@ -44,9 +44,9 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="主窗口默认尺寸"
+                            <TextBlock Text="{DynamicResource MainWindowDefaultSizeTitle}"
                                        Style="{StaticResource SettingsRowTitleTextStyle}"/>
-                            <TextBlock Text="修改后重启生效。"
+                            <TextBlock Text="{DynamicResource MainWindowDefaultSizeDescription}"
                                        Style="{StaticResource SettingsRowDescriptionTextStyle}"/>
                         </StackPanel>
 
@@ -54,17 +54,17 @@
                                     Orientation="Horizontal"
                                     VerticalAlignment="Center">
                             <TextBox Text="{Binding OverlayWidth}"
-                                     materialDesign:HintAssist.Hint="宽 (如 800)"
+                                     materialDesign:HintAssist.Hint="{DynamicResource OverlayWidthHintWithExample}"
                                      Width="88"
                                      Style="{StaticResource MaterialDesignOutlinedTextBox}"
                                      Margin="0,0,12,0"/>
-                            <TextBlock Text="×"
+                            <TextBlock Text="x"
                                        VerticalAlignment="Center"
                                        FontWeight="Bold"
                                        Opacity="0.5"
                                        Margin="0,0,12,0"/>
                             <TextBox Text="{Binding OverlayHeight}"
-                                     materialDesign:HintAssist.Hint="高 (如 500)"
+                                     materialDesign:HintAssist.Hint="{DynamicResource OverlayHeightHintWithExample}"
                                      Width="88"
                                      Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
                         </StackPanel>
@@ -107,7 +107,7 @@
                 <StackPanel>
                     <TextBlock Text="{DynamicResource RuntimeLogs}"
                                Style="{StaticResource SettingsSectionTitleTextStyle}"/>
-                    <TextBlock Text="保留日志查看，并把刷新、自动刷新和打开日志文件放在同一块。"
+                    <TextBlock Text="{DynamicResource RuntimeLogsDescription}"
                                Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
 
                     <WrapPanel Margin="0,18,0,0"

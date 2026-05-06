@@ -303,6 +303,8 @@
     <sys:String x:Key="SteamVrNonTextOpacityHint">0 = fully transparent, 1 = current look</sys:String>
     <sys:String x:Key="AppearanceUiSettingsTitle">UI settings</sys:String>
     <sys:String x:Key="AppearanceUiSettingsDescription">Customize the interface language and default main window size.</sys:String>
+    <sys:String x:Key="AppearanceTabTitle">Appearance &amp; Tools</sys:String>
+    <sys:String x:Key="AppearanceTabDescription">Interface language, window size, and helper tools live here.</sys:String>
     <sys:String x:Key="UiLanguageTitle">UI language</sys:String>
     <sys:String x:Key="MainWindowDefaultSizeTitle">Default main window size</sys:String>
     <sys:String x:Key="MainWindowDefaultSizeDescription">Takes effect after restart</sys:String>
@@ -310,6 +312,9 @@
     <sys:String x:Key="OverlayHeightHintWithExample">Height (e.g. 500)</sys:String>
     <sys:String x:Key="ClipboardAssistTitle">Clipboard assist</sys:String>
     <sys:String x:Key="ClipboardAssistDescription">Copy selected fields when a transcript row is clicked.</sys:String>
+    <sys:String x:Key="RuntimeLogsDescription">View the current session log, refresh it, or open the log file quickly.</sys:String>
+    <sys:String x:Key="EdgeTtsVoicePickerCurrentSelection">Current selection</sys:String>
+    <sys:String x:Key="UiLanguage_ja-JP">Japanese</sys:String>
     <sys:String x:Key="RateLimitSourcePrefix">Triggered by</sys:String>
     <sys:String x:Key="RateLimitRulePrefix">Restricted rules</sys:String>
     <sys:String x:Key="RateLimitStatusTag">Triggered · Rate limited</sys:String>

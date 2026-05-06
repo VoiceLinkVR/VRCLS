@@ -303,6 +303,8 @@
     <sys:String x:Key="SteamVrNonTextOpacityHint">0 = 全透明，1 = 当前效果</sys:String>
     <sys:String x:Key="AppearanceUiSettingsTitle">界面设置</sys:String>
     <sys:String x:Key="AppearanceUiSettingsDescription">自定义界面语言和主窗口的启动尺寸。</sys:String>
+    <sys:String x:Key="AppearanceTabTitle">外观与工具</sys:String>
+    <sys:String x:Key="AppearanceTabDescription">界面语言、窗口尺寸和辅助工具集中放在这里。</sys:String>
     <sys:String x:Key="UiLanguageTitle">UI 界面语言</sys:String>
     <sys:String x:Key="MainWindowDefaultSizeTitle">主窗口默认尺寸</sys:String>
     <sys:String x:Key="MainWindowDefaultSizeDescription">修改后重启生效</sys:String>
@@ -310,6 +312,9 @@
     <sys:String x:Key="OverlayHeightHintWithExample">高 (如 500)</sys:String>
     <sys:String x:Key="ClipboardAssistTitle">剪贴板辅助</sys:String>
     <sys:String x:Key="ClipboardAssistDescription">点击翻译条后复制指定字段。</sys:String>
+    <sys:String x:Key="RuntimeLogsDescription">查看当前会话日志，并快速刷新或打开日志文件。</sys:String>
+    <sys:String x:Key="EdgeTtsVoicePickerCurrentSelection">当前选择</sys:String>
+    <sys:String x:Key="UiLanguage_ja-JP">日本語</sys:String>
     <sys:String x:Key="RateLimitSourcePrefix">触发来源</sys:String>
     <sys:String x:Key="RateLimitRulePrefix">受限规则</sys:String>
     <sys:String x:Key="RateLimitStatusTag">已触发 · 限速</sys:String>
