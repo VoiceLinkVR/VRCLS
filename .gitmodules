@@ -1,0 +1,6 @@
+[submodule "ref/translators"]
+	path = ref/translators
+	url = ssh://git@ssh.github.com/UlionTse/translators.git
+[submodule "ref/openvr"]
+	path = ref/openvr
+	url = ssh://git@ssh.github.com:443/ValveSoftware/openvr.git

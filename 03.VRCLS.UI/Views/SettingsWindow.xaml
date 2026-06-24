@@ -1,0 +1,21 @@
+<Window x:Class="VRCLS.UI.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:VRCLS.UI.Views"
+        Title="{DynamicResource 'Settings'}"
+        Icon="pack://application:,,,/Assets/vrcls_logo.ico"
+        Height="700"
+        Width="900"
+        MinHeight="500"
+        MinWidth="700"
+        WindowStartupLocation="CenterScreen"
+        Topmost="False"
+        ResizeMode="CanResizeWithGrip"
+        Background="{DynamicResource MaterialDesignPaper}"
+        Foreground="{DynamicResource MaterialDesignBody}">
+    <Border Margin="0,0,0,8"
+            Padding="12"
+            Background="{DynamicResource MaterialDesignPaper}">
+        <local:SettingsView/>
+    </Border>
+</Window>

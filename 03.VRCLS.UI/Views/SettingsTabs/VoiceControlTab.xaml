@@ -1,0 +1,97 @@
+<UserControl x:Class="VRCLS.UI.Views.SettingsTabs.VoiceControlTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  Padding="28">
+        <StackPanel Width="{Binding RelativeSource={RelativeSource AncestorType=ScrollViewer}, Path=ViewportWidth}"
+                    MaxWidth="1120">
+            <TextBlock Text="实验性语音关键词操作"
+                       Style="{StaticResource MaterialDesignHeadline5TextBlock}"/>
+            <TextBlock Margin="0,8,0,22"
+                       FontSize="13"
+                       Opacity="0.72"
+                       TextWrapping="Wrap"
+                       Text="原“语音控制”内置命令已停用。现在这里只保留实验性的“语音关键词触发操作”，通过匹配识别文本中的关键词来执行自定义动作脚本。"/>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,18">
+                        <ToggleButton DockPanel.Dock="Right"
+                                      IsChecked="{Binding ControlEnabled}"
+                                      Style="{StaticResource SettingsToggleButtonStyle}"/>
+                        <StackPanel>
+                            <TextBlock Text="启用实验功能"
+                                       Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                            <TextBlock Text="启用后，麦克风识别结果会尝试匹配你配置的关键词规则，并执行对应动作。"
+                                       Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <CheckBox Content="命中规则时播放提示音"
+                              IsChecked="{Binding CommandFeedbackEnabled}"/>
+                </StackPanel>
+            </materialDesign:Card>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="使用说明"
+                               Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                    <TextBlock Style="{StaticResource SettingsSectionDescriptionTextStyle}"
+                               TextWrapping="Wrap"
+                               Text="1. 每条规则包含 action、text、vrcActions 三个字段。&#x0a;2. text 是触发关键词数组，只要识别文本包含其中任意一个关键词就会触发。&#x0a;3. vrcActions 是动作数组，按顺序执行。当前仍是实验性能力，请先用少量规则验证。"/>
+                </StackPanel>
+            </materialDesign:Card>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,12">
+                        <Button DockPanel.Dock="Right"
+                                Content="恢复上次有效配置"
+                                Command="{Binding ResetKeywordsToDefaultCommand}"
+                                Style="{StaticResource MaterialDesignOutlinedButton}"/>
+                        <StackPanel>
+                            <TextBlock Text="规则 JSON"
+                                       Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                            <TextBlock Text="{Binding ExperimentalKeywordActionsStatus}"
+                                       Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <TextBox MinHeight="280"
+                             AcceptsReturn="True"
+                             VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Auto"
+                             TextWrapping="NoWrap"
+                             FontFamily="Consolas"
+                             FontSize="13"
+                             Text="{Binding ExperimentalKeywordActionsJson, UpdateSourceTrigger=LostFocus}"
+                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                             materialDesign:HintAssist.Hint="在这里编辑实验性关键词规则 JSON"/>
+                </StackPanel>
+            </materialDesign:Card>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="示例"
+                               Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                    <TextBlock Text="下面是一个最小可用示例。复制后按你的 Avatar 参数路径和数值修改。"
+                               Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+
+                    <TextBox Margin="0,12,0,0"
+                             IsReadOnly="True"
+                             MinHeight="220"
+                             AcceptsReturn="True"
+                             VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Auto"
+                             TextWrapping="NoWrap"
+                             FontFamily="Consolas"
+                             FontSize="13"
+                             Text="{Binding ExperimentalKeywordActionsExample, Mode=OneWay}"
+                             Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                </StackPanel>
+            </materialDesign:Card>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

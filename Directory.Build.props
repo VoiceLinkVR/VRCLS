@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- Prevent accidental compilation of temporary build output folders created by ad-hoc builds. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);**\obj_temp\**;**\bin_temp\**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>
+

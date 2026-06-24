@@ -1,0 +1,396 @@
+<UserControl x:Class="VRCLS.UI.Views.SettingsTabs.VrIntegrationTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  Padding="28">
+        <StackPanel Width="{Binding RelativeSource={RelativeSource AncestorType=ScrollViewer}, Path=ViewportWidth}"
+                    MaxWidth="1120">
+            <TextBlock Text="VRChat 与 SteamVR"
+                       Style="{StaticResource MaterialDesignHeadline5TextBlock}"/>
+            <TextBlock Text="OSC 发送、OSC 接收和 SteamVR 掌心字幕都直接显示可用项，不再多一层折叠。"
+                       Margin="0,8,0,22"
+                       FontSize="13"
+                       Opacity="0.68"
+                       TextWrapping="Wrap"/>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource OscSendCardTitle}"
+                               Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                    <TextBlock Text="{DynamicResource OscSendCardDescription}"
+                               Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+
+                    <Grid Margin="0,18,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding OscIp, UpdateSourceTrigger=LostFocus}"
+                                 materialDesign:HintAssist.Hint="{DynamicResource OscTargetIpHint}"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                        <TextBox Grid.Column="2"
+                                 Text="{Binding OscPort, UpdateSourceTrigger=LostFocus}"
+                                 materialDesign:HintAssist.Hint="{DynamicResource OscTargetPortHint}"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                    </Grid>
+
+                    <TextBox Text="{Binding VrcChatboxFormatNew}"
+                             materialDesign:HintAssist.Hint="Chatbox 消息模板"
+                             AcceptsReturn="True"
+                             Height="80"
+                             TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto"
+                             Margin="0,0,0,16"
+                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                             ToolTip="{DynamicResource ChatboxTemplateVariablesTip}"/>
+
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource OscChatboxNotificationTitle}"
+                                       Style="{StaticResource SettingsRowTitleTextStyle}"/>
+                            <TextBlock Text="{DynamicResource OscChatboxNotificationDescription}"
+                                       Style="{StaticResource SettingsRowDescriptionTextStyle}"/>
+                        </StackPanel>
+                        <ToggleButton Grid.Column="1"
+                                      IsChecked="{Binding OscChatboxNotificationSfx}"
+                                      Style="{StaticResource SettingsToggleButtonStyle}"/>
+                    </Grid>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource OscClearOnExitTitle}"
+                                       Style="{StaticResource SettingsRowTitleTextStyle}"/>
+                            <TextBlock Text="{DynamicResource OscClearOnExitDescription}"
+                                       Style="{StaticResource SettingsRowDescriptionTextStyle}"/>
+                        </StackPanel>
+                        <ToggleButton Grid.Column="1"
+                                      IsChecked="{Binding OscShutdown}"
+                                      Style="{StaticResource SettingsToggleButtonStyle}"/>
+                    </Grid>
+                </StackPanel>
+            </materialDesign:Card>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,18">
+                        <ToggleButton DockPanel.Dock="Right"
+                                      IsChecked="{Binding EnableOscServer}"
+                                      Style="{StaticResource SettingsToggleButtonStyle}"/>
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource OscReceiveTitle}"
+                                       Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                            <TextBlock Text="{DynamicResource OscReceiveDescription}"
+                                       Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <StackPanel Visibility="{Binding EnableOscServer, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="启用后会监听 VRChat 状态，并支持和本地文字一起拼接模板。"
+                                   FontSize="12"
+                                   Opacity="0.68"
+                                   TextWrapping="Wrap"/>
+
+                        <Grid Margin="0,16,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding OscServerIp, UpdateSourceTrigger=LostFocus}"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                     materialDesign:HintAssist.Hint="本机监听 IP"/>
+                            <TextBox Grid.Column="2"
+                                     Text="{Binding OscServerPort, UpdateSourceTrigger=LostFocus}"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                     materialDesign:HintAssist.Hint="本机监听端口"/>
+                        </Grid>
+
+                        <Grid Margin="0,16,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource ExternalOscTextInputTitle}"
+                                           Style="{StaticResource SettingsRowTitleTextStyle}"/>
+                                <TextBlock Text="{DynamicResource ExternalOscTextInputDescription}"
+                                           Style="{StaticResource SettingsRowDescriptionTextStyle}"/>
+                            </StackPanel>
+                            <ToggleButton Grid.Column="1"
+                                          IsChecked="{Binding UseExternalOscInputAsTextInput}"
+                                          Style="{StaticResource SettingsToggleButtonStyle}"/>
+                        </Grid>
+
+                        <TextBox Margin="0,14,0,0"
+                                 Text="{Binding ChatboxOscMixTemplate}"
+                                 AcceptsReturn="True"
+                                 Height="76"
+                                 VerticalScrollBarVisibility="Auto"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                 materialDesign:HintAssist.Hint="OSC 混合模板"
+                                 ToolTip="{DynamicResource OscMixTemplateToolTip}"/>
+                    </StackPanel>
+                </StackPanel>
+            </materialDesign:Card>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,18">
+                        <ToggleButton DockPanel.Dock="Right"
+                                      IsChecked="{Binding TextInSteamVr}"
+                                      Style="{StaticResource SettingsToggleButtonStyle}"/>
+                        <StackPanel>
+                            <TextBlock Text="SteamVR 掌心字幕"
+                                       Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                            <TextBlock Text="{DynamicResource SteamVrPalmSubtitleDescription}"
+                                       Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <StackPanel Visibility="{Binding TextInSteamVr, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="{Binding SteamVrStatus}"
+                                   FontSize="12"
+                                   Opacity="0.7"/>
+                        <TextBlock Text="{Binding SteamVrStartupStatus}"
+                                   Margin="0,6,0,0"
+                                   FontSize="12"
+                                   Opacity="0.7"/>
+
+                        <Grid Margin="0,16,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="随 SteamVR 启动"
+                                           Style="{StaticResource SettingsRowTitleTextStyle}"/>
+                                <TextBlock Text="把 VRCLS 注册到 SteamVR，并使用 SteamVR 的自动拉起机制。首次启用时建议在 SteamVR 运行状态下操作。"
+                                           Style="{StaticResource SettingsRowDescriptionTextStyle}"/>
+                            </StackPanel>
+                            <ToggleButton Grid.Column="1"
+                                          IsChecked="{Binding SteamVrAutoLaunch}"
+                                          Style="{StaticResource SettingsToggleButtonStyle}"/>
+                        </Grid>
+
+                        <Grid Margin="0,16,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource SteamVrDiagnosticLoggingTitle}"
+                                           Style="{StaticResource SettingsRowTitleTextStyle}"/>
+                                <TextBlock Text="{DynamicResource SteamVrDiagnosticLoggingDescription}"
+                                           Style="{StaticResource SettingsRowDescriptionTextStyle}"/>
+                            </StackPanel>
+                            <ToggleButton Grid.Column="1"
+                                          IsChecked="{Binding SteamVrDiagnosticLogging}"
+                                          Style="{StaticResource SettingsToggleButtonStyle}"/>
+                        </Grid>
+
+                        <Grid Margin="0,16,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="0"
+                                      SelectedIndex="{Binding SteamVrHand}"
+                                      Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                      materialDesign:HintAssist.Hint="绑定手柄">
+                                <ComboBoxItem Content="右手 (Right)"/>
+                                <ComboBoxItem Content="左手 (Left)"/>
+                            </ComboBox>
+                            <TextBox Grid.Column="2"
+                                     Text="{Binding SteamVrSize}"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                     materialDesign:HintAssist.Hint="Overlay 大小 (0.05 - 0.5)"/>
+                        </Grid>
+
+                        <Slider Margin="0,14,0,0"
+                                Minimum="0.05"
+                                Maximum="0.5"
+                                TickFrequency="0.01"
+                                Value="{Binding SteamVrSize}"/>
+
+                        <ComboBox Margin="0,14,0,0"
+                                  SelectedIndex="{Binding SteamVrTrackingDeviceMode}"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                  materialDesign:HintAssist.Hint="Tracking source">
+                            <ComboBoxItem Content="Auto"/>
+                            <ComboBoxItem Content="Controller"/>
+                            <ComboBoxItem Content="Hand tracking"/>
+                        </ComboBox>
+
+                        <Grid Margin="0,16,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource SteamVrFontScaleTitle}"
+                                           Style="{StaticResource SettingsRowTitleTextStyle}"/>
+                                <TextBlock Text="{DynamicResource SteamVrFontScaleDescription}"
+                                           Style="{StaticResource SettingsRowDescriptionTextStyle}"/>
+                            </StackPanel>
+                            <TextBox Grid.Column="2"
+                                     Text="{Binding SteamVrFontScale}"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                     materialDesign:HintAssist.Hint="{DynamicResource SteamVrFontScaleHint}"/>
+                        </Grid>
+
+                        <Slider Margin="0,12,0,0"
+                                Minimum="0.70"
+                                Maximum="1.40"
+                                TickFrequency="0.05"
+                                IsSnapToTickEnabled="True"
+                                Value="{Binding SteamVrFontScale}"/>
+
+                        <Grid Margin="0,16,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource SteamVrNonTextOpacityTitle}"
+                                           Style="{StaticResource SettingsRowTitleTextStyle}"/>
+                                <TextBlock Text="{DynamicResource SteamVrNonTextOpacityDescription}"
+                                           Style="{StaticResource SettingsRowDescriptionTextStyle}"/>
+                            </StackPanel>
+                            <TextBox Grid.Column="2"
+                                     Text="{Binding SteamVrNonTextOpacity}"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                     materialDesign:HintAssist.Hint="{DynamicResource SteamVrNonTextOpacityHint}"/>
+                        </Grid>
+
+                        <Slider Margin="0,12,0,0"
+                                Minimum="0"
+                                Maximum="1"
+                                TickFrequency="0.05"
+                                Value="{Binding SteamVrNonTextOpacity}"/>
+
+                        <Grid Margin="0,14,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="0"
+                                      SelectedIndex="{Binding SteamVrAnchorMode}"
+                                      Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                      materialDesign:HintAssist.Hint="面板锚点">
+                                <ComboBoxItem Content="掌心"/>
+                                <ComboBoxItem Content="手背"/>
+                                <ComboBoxItem Content="头部悬浮"/>
+                            </ComboBox>
+                            <TextBox Grid.Column="2"
+                                     Text="{Binding SteamVrOffsetZ}"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                     materialDesign:HintAssist.Hint="深度偏移 (-0.75 ~ 0.75)"/>
+                        </Grid>
+
+                        <TextBlock Text="位置偏移"
+                                   Margin="0,18,0,6"
+                                   Style="{StaticResource SettingsRowTitleTextStyle}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding SteamVrOffsetX}"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                     materialDesign:HintAssist.Hint="X 偏移"/>
+                            <TextBox Grid.Column="2"
+                                     Text="{Binding SteamVrOffsetY}"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                     materialDesign:HintAssist.Hint="Y 偏移"/>
+                        </Grid>
+
+                        <Slider Margin="0,12,0,0"
+                                Minimum="-0.45"
+                                Maximum="0.45"
+                                TickFrequency="0.01"
+                                Value="{Binding SteamVrOffsetX}"/>
+                        <Slider Margin="0,8,0,0"
+                                Minimum="-0.45"
+                                Maximum="0.45"
+                                TickFrequency="0.01"
+                                Value="{Binding SteamVrOffsetY}"/>
+                        <Slider Margin="0,8,0,0"
+                                Minimum="-0.75"
+                                Maximum="0.75"
+                                TickFrequency="0.01"
+                                Value="{Binding SteamVrOffsetZ}"/>
+
+                        <TextBlock Text="旋转偏移"
+                                   Margin="0,18,0,6"
+                                   Style="{StaticResource SettingsRowTitleTextStyle}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding SteamVrRotationX}"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                     materialDesign:HintAssist.Hint="Rot X"/>
+                            <TextBox Grid.Column="2"
+                                     Text="{Binding SteamVrRotationY}"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                     materialDesign:HintAssist.Hint="Rot Y"/>
+                            <TextBox Grid.Column="4"
+                                     Text="{Binding SteamVrRotationZ}"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                     materialDesign:HintAssist.Hint="Rot Z"/>
+                        </Grid>
+
+                        <Slider Margin="0,12,0,0"
+                                Minimum="-180"
+                                Maximum="180"
+                                TickFrequency="1"
+                                Value="{Binding SteamVrRotationX}"/>
+                        <Slider Margin="0,8,0,0"
+                                Minimum="-180"
+                                Maximum="180"
+                                TickFrequency="1"
+                                Value="{Binding SteamVrRotationY}"/>
+                        <Slider Margin="0,8,0,0"
+                                Minimum="-180"
+                                Maximum="180"
+                                TickFrequency="1"
+                                Value="{Binding SteamVrRotationZ}"/>
+
+                        <WrapPanel Margin="0,14,0,0">
+                            <CheckBox Content="光标 X 轴反转"
+                                      IsChecked="{Binding SteamVrCursorFlipU}"
+                                      Margin="0,0,24,8"/>
+                            <CheckBox Content="光标 Y 轴反转"
+                                      IsChecked="{Binding SteamVrCursorFlipV}"
+                                      Margin="0,0,24,8"/>
+                        </WrapPanel>
+                    </StackPanel>
+                </StackPanel>
+            </materialDesign:Card>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

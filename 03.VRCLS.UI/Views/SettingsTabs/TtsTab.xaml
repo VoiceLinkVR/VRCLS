@@ -1,0 +1,434 @@
+<UserControl x:Class="VRCLS.UI.Views.SettingsTabs.TtsTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  Padding="28">
+        <StackPanel Width="{Binding RelativeSource={RelativeSource AncestorType=ScrollViewer}, Path=ViewportWidth}"
+                    MaxWidth="1120">
+            <TextBlock Text="语音合成 (TTS)"
+                       Style="{StaticResource MaterialDesignHeadline5TextBlock}"/>
+            <TextBlock Text="在一个区域里直接完成引擎、输出、音色、语速和打断策略设置。"
+                       Margin="0,8,0,22"
+                       FontSize="13"
+                       Opacity="0.68"
+                       TextWrapping="Wrap"/>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <DockPanel>
+                    <ToggleButton DockPanel.Dock="Right"
+                                  IsChecked="{Binding EnableTts}"
+                                  Style="{StaticResource SettingsToggleButtonStyle}"/>
+                    <StackPanel>
+                        <TextBlock Text="启用 TTS 播报"
+                                   Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                        <TextBlock Text="统一控制是否播报原文或译文。"
+                                   Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+                    </StackPanel>
+                </DockPanel>
+            </materialDesign:Card>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="引擎与音色"
+                               Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                    <TextBlock Text="选择引擎、扬声器设备、音色、语速和播报策略。"
+                               Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+
+                    <ComboBox Margin="0,18,0,0"
+                              SelectedIndex="{Binding TtsEngine}"
+                              Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                              materialDesign:HintAssist.Hint="引擎类型">
+                        <ComboBoxItem Content="服务器 TTS"/>
+                        <ComboBoxItem Content="本地系统 TTS"/>
+                    </ComboBox>
+
+                    <ComboBox Margin="0,14,0,0"
+                              ItemsSource="{Binding ServerTtsProviderOptions}"
+                              SelectedValue="{Binding TtsProvider}"
+                              SelectedValuePath="Code"
+                              DisplayMemberPath="DisplayName"
+                              IsEnabled="{Binding HasServerTtsProviderOptions}"
+                              Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                              Visibility="{Binding IsServerTtsEngine, Converter={StaticResource BooleanToVisibilityConverter}}"
+                              materialDesign:HintAssist.Hint="服务端 TTS"/>
+
+                    <TextBlock Margin="0,8,0,0"
+                               Text="{Binding TtsEngineCatalogStatus}"
+                               FontSize="12"
+                               Opacity="0.72"
+                               TextWrapping="Wrap"
+                               Visibility="{Binding ShowTtsEngineCatalogStatus, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                    <StackPanel Margin="0,14,0,0"
+                                Visibility="{Binding ShowQwenTtsToneSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <ComboBox SelectedIndex="{Binding QwenTtsToneMode}"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                  materialDesign:HintAssist.Hint="Qwen 语气控制">
+                            <ComboBoxItem Content="自动"/>
+                            <ComboBoxItem Content="指定"/>
+                        </ComboBox>
+
+                        <ComboBox Margin="0,10,0,0"
+                                  SelectedValue="{Binding QwenTtsInstruct, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  SelectedValuePath="Tag"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                  Visibility="{Binding IsQwenTtsToneSpecified, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                  materialDesign:HintAssist.Hint="常用语气预设">
+                            <ComboBoxItem Tag="请用稳定、自然、克制的语气朗读，语速均匀，情绪变化小，不要夸张，不要突然升降调。"
+                                          Content="稳定自然"/>
+                            <ComboBoxItem Tag="请用温柔、亲切、放松的语气朗读，音量适中，节奏舒缓。"
+                                          Content="温柔亲切"/>
+                            <ComboBoxItem Tag="请用清晰、平稳、专业的播报语气朗读，减少情绪起伏，重点词稍作强调。"
+                                          Content="清晰播报"/>
+                            <ComboBoxItem Tag="请用轻快、友好、有活力的语气朗读，但不要夸张。"
+                                          Content="轻快友好"/>
+                            <ComboBoxItem Tag="请用冷静、低起伏、偏机械感的语气朗读，保持稳定节奏。"
+                                          Content="冷静低起伏"/>
+                        </ComboBox>
+
+                        <Grid Margin="0,10,0,0"
+                              Visibility="{Binding IsQwenTtsToneSpecified, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding QwenTtsInstruct, UpdateSourceTrigger=PropertyChanged}"
+                                     MinHeight="86"
+                                     MaxLength="300"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     VerticalScrollBarVisibility="Auto"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                     materialDesign:HintAssist.Hint="指定语气"/>
+
+                            <Border Grid.Column="1"
+                                    Width="32"
+                                    Height="32"
+                                    Margin="8,8,0,0"
+                                    VerticalAlignment="Top"
+                                    Background="Transparent"
+                                    ToolTipService.InitialShowDelay="200">
+                                <Border.ToolTip>
+                                    <ToolTip MaxWidth="360">
+                                        <TextBlock Text="用一句自然语言描述希望的朗读方式，可以包含语气、情绪强度、语速、音调起伏和禁忌。例：请用稳定、自然、克制的语气朗读，语速均匀，情绪变化小，不要夸张。"
+                                                   TextWrapping="Wrap"/>
+                                    </ToolTip>
+                                </Border.ToolTip>
+                                <materialDesign:PackIcon Kind="InformationOutline"
+                                                         Width="22"
+                                                         Height="22"
+                                                         Opacity="0.72"
+                                                         HorizontalAlignment="Center"
+                                                         VerticalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+
+                    <StackPanel Margin="0,14,0,0"
+                                Visibility="{Binding ShowQwenTtsVoiceModeSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <ComboBox SelectedIndex="{Binding QwenTtsVoiceMode}"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                  materialDesign:HintAssist.Hint="Qwen 音色来源">
+                            <ComboBoxItem Content="内置音色（资源消耗：2）"/>
+                            <ComboBoxItem Content="声音克隆（资源消耗：3）"/>
+                        </ComboBox>
+                    </StackPanel>
+
+                    <StackPanel Margin="0,14,0,0"
+                                Visibility="{Binding ShowMossTtsVoiceModeSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <ComboBox SelectedIndex="{Binding MossTtsVoiceMode}"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                  materialDesign:HintAssist.Hint="MOSS 音色来源">
+                            <ComboBoxItem Content="内置音色（资源消耗：1）"/>
+                            <ComboBoxItem Content="声音克隆（资源消耗：2）"/>
+                        </ComboBox>
+                    </StackPanel>
+
+                    <StackPanel Margin="0,14,0,0"
+                                Visibility="{Binding ShowOmniVoiceTtsVoiceModeSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <ComboBox SelectedIndex="{Binding OmniVoiceTtsVoiceMode}"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                  materialDesign:HintAssist.Hint="OmniVoice 音色来源">
+                            <ComboBoxItem Content="生成音色（资源消耗：1）"/>
+                            <ComboBoxItem Content="声音克隆（资源消耗：2）"/>
+                        </ComboBox>
+                    </StackPanel>
+
+                    <StackPanel Margin="0,14,0,0"
+                                Visibility="{Binding ShowTtsVoiceCloneProfilesSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="声音预设"
+                                   FontWeight="SemiBold"
+                                   Opacity="0.82"/>
+                        <TextBlock Text="声音克隆只使用声音预设。可在“管理配置”的“预设市场”下载任意音色，也可以新增自定义音色。"
+                                   Margin="0,4,0,8"
+                                   FontSize="12"
+                                   Opacity="0.68"
+                                   TextWrapping="Wrap"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <ComboBox Grid.Column="0"
+                                      Grid.ColumnSpan="3"
+                                      ItemsSource="{Binding TtsVoiceClonePresetOptions}"
+                                      SelectedValue="{Binding SelectedTtsVoiceClonePresetId}"
+                                      SelectedValuePath="Id"
+                                      DisplayMemberPath="DisplayName"
+                                      Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                      materialDesign:HintAssist.Hint="声音预设"/>
+
+                            <TextBlock Grid.Row="1"
+                                       Grid.Column="0"
+                                       Text="{Binding TtsVoiceCloneProfilesStatus}"
+                                       Margin="0,10,0,0"
+                                       FontSize="12"
+                                       Opacity="0.72"
+                                       TextWrapping="Wrap"
+                                       VerticalAlignment="Center"/>
+                            <Button Grid.Row="1"
+                                    Grid.Column="2"
+                                    Click="OnOpenTtsVoiceCloneProfiles"
+                                    Margin="0,10,0,0"
+                                    Style="{StaticResource MaterialDesignOutlinedButton}">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Tune"
+                                                             Width="18"
+                                                             Height="18"
+                                                             Margin="0,0,6,0"/>
+                                    <TextBlock Text="管理配置"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+
+                    <Grid Margin="0,14,0,0"
+                          Visibility="{Binding ShowEdgeTtsVoiceSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding TtsVoiceName, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                 materialDesign:HintAssist.Hint="Edge 内置音色"/>
+                        <Button Grid.Column="2"
+                                Content="{DynamicResource 'Pick Voice'}"
+                                Click="OnOpenEdgeTtsVoicePicker"
+                                Style="{StaticResource MaterialDesignOutlinedButton}"/>
+                    </Grid>
+
+                    <Grid Margin="0,14,0,0"
+                          Visibility="{Binding ShowQwenTtsBuiltInVoiceSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding QwenTtsVoiceName, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                 materialDesign:HintAssist.Hint="Qwen 内置音色（留空使用默认）"/>
+                        <Button Grid.Column="2"
+                                Content="{DynamicResource 'Pick Voice'}"
+                                Click="OnOpenQwenTtsVoicePicker"
+                                Style="{StaticResource MaterialDesignOutlinedButton}"/>
+                    </Grid>
+
+                    <Grid Margin="0,14,0,0"
+                          Visibility="{Binding ShowMossTtsBuiltInVoiceSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding MossTtsVoiceName, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                 materialDesign:HintAssist.Hint="MOSS 内置音色（留空使用默认）"/>
+                        <Button Grid.Column="2"
+                                Content="{DynamicResource 'Pick Voice'}"
+                                Click="OnOpenMossTtsVoicePicker"
+                                Style="{StaticResource MaterialDesignOutlinedButton}"/>
+                    </Grid>
+
+                    <Grid Margin="0,14,0,0"
+                          Visibility="{Binding ShowOmniVoiceTtsBuiltInVoiceSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding OmniVoiceTtsVoiceName, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                 materialDesign:HintAssist.Hint="OmniVoice 音色描述（留空自动生成）"/>
+                        <Button Grid.Column="2"
+                                Content="{DynamicResource 'Pick Voice'}"
+                                Click="OnOpenOmniVoiceTtsVoicePicker"
+                                Style="{StaticResource MaterialDesignOutlinedButton}"/>
+                    </Grid>
+
+                    <TextBlock Margin="0,16,0,0"
+                               Text="{Binding TtsSpeed, StringFormat=语速 {0:F1}x}"
+                               HorizontalAlignment="Right"
+                               FontWeight="SemiBold"/>
+                    <Slider Margin="0,8,0,0"
+                            Minimum="0.5"
+                            Maximum="2.0"
+                            TickFrequency="0.1"
+                            Value="{Binding TtsSpeed}"/>
+
+                    <TextBlock Margin="0,16,0,0"
+                               Text="{Binding TtsVolume, StringFormat=音量 {0:F1}x}"
+                               HorizontalAlignment="Right"
+                               FontWeight="SemiBold"/>
+                    <Slider Margin="0,8,0,0"
+                            Minimum="0.0"
+                            Maximum="4.0"
+                            TickFrequency="0.1"
+                            Value="{Binding TtsVolume}"/>
+
+                    <ComboBox Margin="0,14,0,0"
+                              SelectedIndex="{Binding TtsInterruptMode}"
+                              Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                              materialDesign:HintAssist.Hint="播报中断策略">
+                        <ComboBoxItem Content="新消息打断当前播报"/>
+                        <ComboBoxItem Content="排队等待顺序播报"/>
+                    </ComboBox>
+                </StackPanel>
+            </materialDesign:Card>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <DockPanel>
+                        <ToggleButton DockPanel.Dock="Right"
+                                      IsChecked="{Binding TtsMicPassthroughEnabled}"
+                                      Style="{StaticResource SettingsToggleButtonStyle}"/>
+                        <StackPanel>
+                            <TextBlock Text="麦克风透传"
+                                       Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                            <TextBlock Text="把当前麦克风原声实时送到“麦克风播报输出设备”，与麦克风路线的语音合成共用同一路虚拟声卡。"
+                                       Margin="0,4,12,0"
+                                       Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <TextBlock Margin="0,16,0,0"
+                               Text="{Binding TtsMicPassthroughVolume, StringFormat=透传音量 {0:F2}x}"
+                               HorizontalAlignment="Right"
+                               FontWeight="SemiBold"/>
+                    <Slider Margin="0,8,0,0"
+                            Minimum="0.0"
+                            Maximum="4.0"
+                            TickFrequency="0.05"
+                            SmallChange="0.05"
+                            LargeChange="0.25"
+                            IsSnapToTickEnabled="True"
+                            Value="{Binding TtsMicPassthroughVolume, UpdateSourceTrigger=PropertyChanged}"/>
+                </StackPanel>
+            </materialDesign:Card>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="播报内容"
+                               Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                    <TextBlock Text="每条路线独立选择播报输出设备和识别完成后需要播报的字段。"
+                               Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+
+                    <TextBlock Text="麦克风路线"
+                               Margin="0,18,0,8"
+                               FontWeight="SemiBold"
+                               Opacity="0.82"/>
+                    <ComboBox ItemsSource="{Binding TtsOutputDevices}"
+                              SelectedValue="{Binding TtsOutputName}"
+                              MinWidth="460"
+                              ToolTip="{Binding SelectedItem, RelativeSource={RelativeSource Self}}"
+                              Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                              materialDesign:HintAssist.Hint="麦克风播报输出设备"/>
+                    <TextBlock Margin="0,8,0,8"
+                               Text="通常选择送入 VRChat 的虚拟声卡；麦克风透传也会使用这一路。"
+                               Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+                    <WrapPanel>
+                        <CheckBox Content="原文"
+                                  IsChecked="{Binding MicTtsSpeakOriginal}"
+                                  Margin="0,0,16,8"/>
+                        <CheckBox Content="译文1"
+                                  IsChecked="{Binding MicTtsSpeakTranslation1}"
+                                  Margin="0,0,16,8"/>
+                        <CheckBox Content="译文2"
+                                  IsChecked="{Binding MicTtsSpeakTranslation2}"
+                                  Margin="0,0,16,8"/>
+                        <CheckBox Content="译文3"
+                                  IsChecked="{Binding MicTtsSpeakTranslation3}"
+                                  Margin="0,0,16,8"/>
+                    </WrapPanel>
+
+                    <TextBlock Text="监听音频路线"
+                               Margin="0,18,0,8"
+                               FontWeight="SemiBold"
+                               Opacity="0.82"/>
+                    <ComboBox ItemsSource="{Binding TtsOutputDevices}"
+                              SelectedValue="{Binding DesktopTtsOutputName}"
+                              MinWidth="460"
+                              ToolTip="{Binding SelectedItem, RelativeSource={RelativeSource Self}}"
+                              Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                              materialDesign:HintAssist.Hint="监听音频播报输出设备"/>
+                    <TextBlock Margin="0,8,0,8"
+                               Text="通常选择耳机或系统默认输出，用于听别人说话的翻译结果。"
+                               Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+                    <WrapPanel>
+                        <CheckBox Content="原文"
+                                  IsChecked="{Binding DesktopTtsSpeakOriginal}"
+                                  Margin="0,0,16,8"/>
+                        <CheckBox Content="译文1"
+                                  IsChecked="{Binding DesktopTtsSpeakTranslation1}"
+                                  Margin="0,0,16,8"/>
+                        <CheckBox Content="译文2"
+                                  IsChecked="{Binding DesktopTtsSpeakTranslation2}"
+                                  Margin="0,0,16,8"/>
+                        <CheckBox Content="译文3"
+                                  IsChecked="{Binding DesktopTtsSpeakTranslation3}"
+                                  Margin="0,0,16,8"/>
+                    </WrapPanel>
+                </StackPanel>
+            </materialDesign:Card>
+
+            <materialDesign:Card Style="{StaticResource SettingsSectionCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="试听"
+                               Style="{StaticResource SettingsSectionTitleTextStyle}"/>
+                    <TextBlock Text="试听当前音色、麦克风播报输出设备和语速组合。"
+                               Style="{StaticResource SettingsSectionDescriptionTextStyle}"/>
+
+                    <Grid Margin="0,18,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding TtsTestText}"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                 materialDesign:HintAssist.Hint="TTS 测试文本"/>
+                        <Button Grid.Column="2"
+                                Command="{Binding TestTtsCommand}"
+                                Content="试听"
+                                Style="{StaticResource MaterialDesignRaisedButton}"/>
+                    </Grid>
+                </StackPanel>
+            </materialDesign:Card>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

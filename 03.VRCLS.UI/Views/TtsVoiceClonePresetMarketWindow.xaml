@@ -1,0 +1,199 @@
+<Window x:Class="VRCLS.UI.Views.TtsVoiceClonePresetMarketWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="音色预设市场"
+        Width="920"
+        Height="640"
+        MinWidth="760"
+        MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip"
+        Background="{DynamicResource MaterialDesignPaper}"
+        Topmost="False"
+        Loaded="OnLoaded">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0"
+                   Margin="0,0,0,18">
+            <Button DockPanel.Dock="Right"
+                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                    IsEnabled="{Binding CanRefresh}"
+                    Click="OnRefresh">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="Refresh"
+                                             Width="18"
+                                             Height="18"
+                                             Margin="0,0,6,0"/>
+                    <TextBlock Text="刷新"/>
+                </StackPanel>
+            </Button>
+            <StackPanel>
+                <TextBlock Text="音色预设市场"
+                           Style="{StaticResource MaterialDesignHeadline5TextBlock}"/>
+                <TextBlock Text="从当前登录的服务器下载预设包，下载后会安装到本机用户预设目录并加入当前配置。"
+                           Margin="0,8,0,0"
+                           FontSize="13"
+                           Opacity="0.72"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+        </DockPanel>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="320"/>
+                <ColumnDefinition Width="18"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Padding="10"
+                    CornerRadius="8"
+                    BorderBrush="{DynamicResource MaterialDesignDivider}"
+                    BorderThickness="1">
+                <Grid>
+                    <TextBlock Text="正在加载市场预设..."
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Opacity="0.68"
+                               Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                    <ListBox ItemsSource="{Binding Items}"
+                             SelectedItem="{Binding SelectedItem}"
+                             BorderThickness="0"
+                             Background="Transparent"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="10"
+                                        Margin="0,0,0,8"
+                                        CornerRadius="8"
+                                        BorderBrush="{DynamicResource MaterialDesignDivider}"
+                                        BorderThickness="1">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   FontWeight="SemiBold"
+                                                   TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding Summary}"
+                                                   Margin="0,5,0,0"
+                                                   FontSize="12"
+                                                   Opacity="0.68"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="2"
+                    Padding="18"
+                    CornerRadius="8"
+                    BorderBrush="{DynamicResource MaterialDesignDivider}"
+                    BorderThickness="1">
+                <Grid>
+                    <TextBlock Text="选择一个市场预设查看详情。"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Opacity="0.62"
+                               Visibility="{Binding HasSelectedItem, Converter={StaticResource InverseBooleanToVisibilityConverter}}"/>
+
+                    <StackPanel Visibility="{Binding HasSelectedItem, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="{Binding SelectedItem.DisplayName}"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding SelectedItem.Description}"
+                                   Margin="0,12,0,0"
+                                   Opacity="0.78"
+                                   TextWrapping="Wrap"/>
+
+                        <UniformGrid Columns="2"
+                                     Margin="0,20,0,0">
+                            <StackPanel Margin="0,0,14,14">
+                                <TextBlock Text="适用语言"
+                                           FontWeight="SemiBold"
+                                           Opacity="0.72"/>
+                                <TextBlock Text="{Binding SelectedItem.LanguagesText}"
+                                           Margin="0,4,0,0"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <StackPanel Margin="0,0,14,14">
+                                <TextBlock Text="TTS 服务商"
+                                           FontWeight="SemiBold"
+                                           Opacity="0.72"/>
+                                <TextBlock Text="{Binding SelectedItem.ProvidersText}"
+                                           Margin="0,4,0,0"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <StackPanel Margin="0,0,14,14">
+                                <TextBlock Text="版本"
+                                           FontWeight="SemiBold"
+                                           Opacity="0.72"/>
+                                <TextBlock Text="{Binding SelectedItem.Version}"
+                                           Margin="0,4,0,0"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <StackPanel Margin="0,0,14,14">
+                                <TextBlock Text="文件大小"
+                                           FontWeight="SemiBold"
+                                           Opacity="0.72"/>
+                                <TextBlock Text="{Binding SelectedItem.FileSizeText}"
+                                           Margin="0,4,0,0"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </UniformGrid>
+
+                        <TextBlock Text="{Binding SelectedItem.UpdatedAt}"
+                                   Margin="0,4,0,0"
+                                   FontSize="12"
+                                   Opacity="0.62"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="2"
+              Margin="0,18,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Text="{Binding StatusText}"
+                       VerticalAlignment="Center"
+                       FontSize="12"
+                       Opacity="0.78"
+                       TextWrapping="Wrap"/>
+
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal">
+                <Button Width="128"
+                        Height="40"
+                        IsEnabled="{Binding CanInstallSelected}"
+                        Click="OnInstall"
+                        Style="{StaticResource MaterialDesignRaisedButton}">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Download"
+                                                 Width="18"
+                                                 Height="18"
+                                                 Margin="0,0,6,0"/>
+                        <TextBlock Text="下载并安装"/>
+                    </StackPanel>
+                </Button>
+                <Button Content="关闭"
+                        Height="40"
+                        Margin="12,0,0,0"
+                        IsCancel="True"
+                        Style="{StaticResource MaterialDesignFlatButton}"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

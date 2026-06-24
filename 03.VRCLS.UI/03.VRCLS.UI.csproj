@@ -1,0 +1,85 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>VRCLS.UI</RootNamespace>
+    <AssemblyName>VRCLS</AssemblyName>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ApplicationIcon>Assets\vrcls_logo.ico</ApplicationIcon>
+    <AssemblyTitle>VRCLS - VRChat LinguaSync</AssemblyTitle>
+    <AssemblyDescription>VRChat LinguaSync: VRChat 语音识别、翻译、TTS、OSC 与 SteamVR 同步工具</AssemblyDescription>
+    <AssemblyProduct>VRCLS (VRChat LinguaSync)</AssemblyProduct>
+    <AssemblyCompany>VoiceLinkVR</AssemblyCompany>
+    <AssemblyCopyright>Copyright 2024</AssemblyCopyright>
+    <Version>0.7.0.1006</Version>
+    <FileVersion>0.7.0.1006</FileVersion>
+    <AssemblyVersion>0.7.0.1006</AssemblyVersion>
+    <InformationalVersion>0.7.0-20260622</InformationalVersion>
+    <Platforms>AnyCPU;x64</Platforms>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.1" />
+    <PackageReference Include="MaterialDesignThemes" Version="5.3.0" />
+    <PackageReference Include="Serilog" Version="4.3.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.23.2" />
+    <PackageReference Include="org.k2fsa.sherpa.onnx" Version="*" />
+    <PackageReference Include="VRCOscLib" Version="1.6.0" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(NetSparklePublicKey)' != ''">
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>NetSparklePublicKey</_Parameter1>
+      <_Parameter2>$(NetSparklePublicKey)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\01.VRCLS.Core\01.VRCLS.Core.csproj" />
+    <ProjectReference Include="..\02.VRCLS.Services\02.VRCLS.Services.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets\**" />
+    <None Include="..\scripts\translator.py" Link="scripts\translator.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>scripts\translator.py</TargetPath>
+    </None>
+    <None Include="..\pre-models\silero_vad.onnx" Link="pre-models\silero_vad.onnx" Condition="Exists('..\pre-models\silero_vad.onnx')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <TargetPath>pre-models\silero_vad.onnx</TargetPath>
+    </None>
+    <None Include="..\音色.json" Link="data\edge_tts_voices.json" Condition="Exists('..\音色.json')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>data\edge_tts_voices.json</TargetPath>
+    </None>
+    <None Include="data\voice_clone_presets\**\*.*" Condition="Exists('data\voice_clone_presets')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <TargetPath>data\voice_clone_presets\%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
+    </None>
+    <None Include="..\tools\translator\**\*.*" Condition="Exists('..\tools\translator\translator.exe')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>translator\%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
+    </None>
+    <None Include="..\ref\openvr\bin\win64\openvr_api.dll" Condition="Exists('..\ref\openvr\bin\win64\openvr_api.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>openvr_api.dll</TargetPath>
+    </None>
+    <Compile Update="Properties\Settings.Designer.cs">
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
+    <None Update="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>VRCLS.ConsoleTest</RootNamespace>
+    <AssemblyName>VRCLS.ConsoleTest</AssemblyName>
+    <Nullable>enable</Nullable>
+    <Platforms>AnyCPU;x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.23.2" />
+    <PackageReference Include="org.k2fsa.sherpa.onnx" Version="1.12.20" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\01.VRCLS.Core\01.VRCLS.Core.csproj" />
+    <ProjectReference Include="..\..\02.VRCLS.Services\02.VRCLS.Services.csproj" />
+  </ItemGroup>
+
+</Project>

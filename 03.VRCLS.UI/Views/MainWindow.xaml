@@ -1,0 +1,952 @@
+﻿<Window x:Class="VRCLS.UI.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        mc:Ignorable="d"
+        Title="{DynamicResource 'VRCLS Overlay'}"
+        Icon="pack://application:,,,/Assets/vrcls_logo.ico"
+        Width="800" Height="500" MinWidth="400" MinHeight="320"
+        WindowStyle="None" AllowsTransparency="True" Background="{x:Null}"
+        ResizeMode="CanResize" Topmost="{Binding IsOverlayPinned}" ShowInTaskbar="True"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0" ResizeBorderThickness="6" CornerRadius="0" GlassFrameThickness="0" UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+                <DropShadowEffect x:Key="SubtitleShadow" BlurRadius="4" ShadowDepth="2" Direction="315" Color="Black" Opacity="1"/>
+        
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Effect" Value="{StaticResource SubtitleShadow}"/>
+        </Style>
+
+        <Style TargetType="materialDesign:PackIcon">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Effect" Value="{StaticResource SubtitleShadow}"/>
+        </Style>
+
+        <Style x:Key="TranscriptRowButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#18FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#28FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        
+        <!-- 连接状态颜色转换器 (简单内联实现，或者你可以复用现有的 StatusColorConverter) -->
+
+        <Style x:Key="ConnectionDotStyle" TargetType="materialDesign:PackIcon" BasedOn="{StaticResource {x:Type materialDesign:PackIcon}}">
+            <Setter Property="Foreground" Value="#B0B0B0"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ConnectionState}" Value="Connected">
+                    <Setter Property="Foreground" Value="#00C853"/>
+                    <Setter Property="ToolTip" Value="{DynamicResource 'Server connected'}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ConnectionState}" Value="Connecting">
+                    <Setter Property="Foreground" Value="#FFB300"/>
+                    <Setter Property="ToolTip" Value="{DynamicResource 'Connecting...'}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ConnectionState}" Value="Disconnected">
+                    <Setter Property="Foreground" Value="#D50000"/>
+                    <Setter Property="ToolTip" Value="{DynamicResource 'Disconnected (check settings)'}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="QuickStartFeatureCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="#1AFFFFFF"/>
+            <Setter Property="BorderBrush" Value="#22FFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+
+        <Style x:Key="QuickStartFeatureTitleTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+
+        <Style x:Key="QuickStartFeatureDescriptionTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#E6FFFFFF"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="LineHeight" Value="18"/>
+            <Setter Property="Margin" Value="0,8,0,0"/>
+        </Style>
+    </Window.Resources>
+
+    <!-- 主容器 -->
+    <Border CornerRadius="8"
+            BorderThickness="1"
+            BorderBrush="#44FFFFFF"
+            Background="{Binding MainWindowBackgroundBrush}">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="10" ShadowDepth="0" Color="Black" Opacity="0.5"/>
+        </Border.Effect>
+
+        <Grid x:Name="MainLayoutRoot">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- ================= Top Controls ================= -->
+            <Grid Grid.Row="0" Margin="12,8" Background="Transparent" MouseLeftButtonDown="Window_MouseLeftButtonDown">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/> <!-- 连接状态 -->
+                    <ColumnDefinition Width="Auto"/> <!-- Mic 控制组 -->
+                    <ColumnDefinition Width="Auto"/> <!-- Desk 控制组 -->
+                    <ColumnDefinition Width="Auto"/> <!-- Photo 控制组 -->
+                    <ColumnDefinition Width="*"/>    <!-- 空白占位 -->
+                    <ColumnDefinition Width="Auto"/> <!-- 窗口按钮 -->
+                </Grid.ColumnDefinitions>
+
+                <!-- 1. 连接状态 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,20,0">
+                    <materialDesign:PackIcon Kind="CircleMedium" Width="14" Height="14" Style="{StaticResource ConnectionDotStyle}"/>
+                    <TextBlock Text="{Binding ConnectionStateText}" FontSize="10" Foreground="White" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                </StackPanel>
+
+                <!-- 2. 麦克风控制组 -->
+                <Border x:Name="MicGuideAnchor"
+                        Grid.Column="1"
+                        Margin="0,0,24,0"
+                        Padding="8,6"
+                        CornerRadius="16"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        BorderThickness="1"
+                        SnapsToDevicePixels="True">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Style="{StaticResource MaterialDesignIconButton}"
+                                    Command="{Binding ToggleMicCommand}"
+                                    Width="26" Height="26" Background="Transparent" BorderThickness="0"
+                                    ToolTip="{DynamicResource '点击 开/关 麦克风监听'}">
+                                <Grid>
+                                    <materialDesign:PackIcon Kind="MicrophoneOff" Width="18" Height="18" Foreground="White"
+                                                             Visibility="{Binding IsMicListening, Converter={StaticResource InverseBooleanToVisibilityConverter}}"/>
+                                    <materialDesign:PackIcon Kind="Microphone" Width="18" Height="18" Foreground="White"
+                                                             Visibility="{Binding IsMicListening, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                </Grid>
+                            </Button>
+
+                            <ProgressBar Value="{Binding MicVolume, Converter={StaticResource VolumeToPercentageConverter}}"
+                                         Width="50" Height="4" Margin="8,0,0,0" VerticalAlignment="Center"
+                                         Foreground="White" Background="#44FFFFFF" BorderThickness="0" Opacity="0.8"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- 3. 桌面控制组 -->
+                <Border x:Name="DesktopGuideAnchor"
+                        Grid.Column="2"
+                        Padding="8,6"
+                        CornerRadius="16"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        BorderThickness="1"
+                        SnapsToDevicePixels="True">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Style="{StaticResource MaterialDesignIconButton}"
+                                    Command="{Binding ToggleDesktopCommand}"
+                                    Width="26" Height="26" Background="Transparent" BorderThickness="0"
+                                    ToolTip="{DynamicResource '点击 开/关 桌面音频监听'}">
+                                <Grid>
+                                    <materialDesign:PackIcon Kind="VolumeMute" Width="18" Height="18" Foreground="White"
+                                                             Visibility="{Binding IsDesktopListening, Converter={StaticResource InverseBooleanToVisibilityConverter}}"/>
+                                    <materialDesign:PackIcon Kind="VolumeHigh" Width="18" Height="18" Foreground="White"
+                                                             Visibility="{Binding IsDesktopListening, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                </Grid>
+                            </Button>
+
+                            <ProgressBar Value="{Binding DesktopVolume, Converter={StaticResource VolumeToPercentageConverter}}"
+                                         Width="50" Height="4" Margin="8,0,0,0" VerticalAlignment="Center"
+                                         Foreground="White" Background="#44FFFFFF" BorderThickness="0" Opacity="0.8"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- 4. 拍照翻译控制组 -->
+                <Border Grid.Column="3"
+                        Margin="0,0,24,0"
+                        Padding="8,6"
+                        CornerRadius="16"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        BorderThickness="1"
+                        SnapsToDevicePixels="True">
+                    <Button Style="{StaticResource MaterialDesignIconButton}"
+                            Command="{Binding RequestPhotoTranslationCommand}"
+                            Width="26" Height="26" Background="Transparent" BorderThickness="0"
+                            ToolTip="{DynamicResource '等待下一张 VRChat 照片并进行拍照翻译'}">
+                        <Grid Width="18" Height="18">
+                            <materialDesign:PackIcon Kind="Camera" Width="18" Height="18" Foreground="White"/>
+                            <Ellipse Width="7" Height="7"
+                                     Fill="#42A5F5"
+                                     Stroke="#FFFFFFFF"
+                                     StrokeThickness="1"
+                                     HorizontalAlignment="Right"
+                                     VerticalAlignment="Bottom"
+                                     Visibility="{Binding IsPhotoTranslationArmed, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        </Grid>
+                    </Button>
+                </Border>
+
+                <!-- 5. 窗口控制按钮 (靠右) -->
+                <TextBlock Grid.Column="4" Text="{Binding AppVersionText}" FontSize="11" Foreground="White"
+                           VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" Opacity="0.9"/>
+
+                <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Style="{StaticResource MaterialDesignIconButton}"
+                            Command="{Binding OpenQuickStartGuideCommand}"
+                            Width="24" Height="24" Margin="0,0,4,0" ToolTip="{DynamicResource QuickStartGuideTooltip}">
+                        <materialDesign:PackIcon Kind="InformationOutline" Width="18" Height="18" Foreground="White" />
+                    </Button>
+
+                    <Border x:Name="LanguageGuideAnchor"
+                            Padding="4"
+                            Margin="0,0,4,0"
+                            CornerRadius="12"
+                            Background="Transparent"
+                            BorderBrush="Transparent"
+                            BorderThickness="1"
+                            SnapsToDevicePixels="True">
+                        <Grid>
+                            <ToggleButton x:Name="LanguageMenuButton"
+                                          Style="{StaticResource MaterialDesignActionToggleButton}"
+                                          IsChecked="{Binding IsUiLanguageMenuOpen, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                          Width="24" Height="24"
+                                          Background="Transparent"
+                                          ToolTip="{DynamicResource UiLanguageSwitchTooltip}">
+                                <materialDesign:PackIcon Kind="Translate" Width="18" Height="18" Foreground="White"/>
+                                <materialDesign:ToggleButtonAssist.OnContent>
+                                    <materialDesign:PackIcon Kind="Translate" Width="18" Height="18" Foreground="White"/>
+                                </materialDesign:ToggleButtonAssist.OnContent>
+                            </ToggleButton>
+                            <Popup Placement="Bottom"
+                                   PlacementTarget="{Binding ElementName=LanguageMenuButton}"
+                                   IsOpen="{Binding IsUiLanguageMenuOpen, Mode=TwoWay}"
+                                   StaysOpen="False"
+                                   AllowsTransparency="True"
+                                   PopupAnimation="Fade"
+                                   DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                <Border Margin="0,8,0,0"
+                                        Padding="8"
+                                        CornerRadius="10"
+                                        Background="#F91A2233"
+                                        BorderBrush="#55FFFFFF"
+                                        BorderThickness="1">
+                                    <ListBox ItemsSource="{Binding UiLanguages}"
+                                             SelectedValue="{Binding UiLanguage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             SelectedValuePath="Code"
+                                             BorderThickness="0"
+                                             Background="Transparent"
+                                             MinWidth="150">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding DisplayName}"
+                                                           Foreground="White"
+                                                           FontSize="13"
+                                                           Padding="8,5"/>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </Border>
+
+                    <!-- 置顶 -->
+                    <ToggleButton Style="{StaticResource MaterialDesignActionToggleButton}"
+                                  IsChecked="{Binding IsOverlayPinned, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  Width="24" Height="24" Margin="0,0,8,0" Background="Transparent"
+                                  ToolTip="{DynamicResource '置顶'}">
+                        <materialDesign:PackIcon Kind="PinOff" Width="16" Height="16" Foreground="White"/>
+                        <materialDesign:ToggleButtonAssist.OnContent>
+                            <materialDesign:PackIcon Kind="Pin" Width="16" Height="16" Foreground="White"/>
+                        </materialDesign:ToggleButtonAssist.OnContent>
+                    </ToggleButton>
+
+                    <!-- 设置 -->
+                    <Border x:Name="SettingsGuideAnchor"
+                            Padding="4"
+                            Margin="0,0,4,0"
+                            CornerRadius="12"
+                            Background="Transparent"
+                            BorderBrush="Transparent"
+                            BorderThickness="1"
+                            SnapsToDevicePixels="True">
+                        <Grid>
+                            <Button Style="{StaticResource MaterialDesignIconButton}"
+                                    Command="{Binding OpenSettingsCommand}"
+                                    Width="24" Height="24" ToolTip="{DynamicResource '设置'}">
+                                <materialDesign:PackIcon Kind="Cog" Width="18" Height="18" Foreground="White" />
+                            </Button>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- 最小化 -->
+                    <Button Style="{StaticResource MaterialDesignIconButton}"
+                            Click="MinimizeButton_Click"
+                            Width="24" Height="24" Margin="0,0,4,0" ToolTip="{DynamicResource '最小化'}">
+                        <materialDesign:PackIcon Kind="WindowMinimize" Width="18" Height="18" Foreground="White" />
+                    </Button>
+                    
+                    <!-- 最大化/还原 -->
+                    <Button Style="{StaticResource MaterialDesignIconButton}"
+                            Click="ToggleMaximizeButton_Click"
+                            Width="24" Height="24" Margin="0,0,4,0" ToolTip="{DynamicResource '全屏/窗口化'}">
+                        <materialDesign:PackIcon Kind="WindowMaximize" Width="16" Height="16" Foreground="White" />
+                    </Button>
+                    
+                    <!-- 关闭 -->
+                    <Button Style="{StaticResource MaterialDesignIconButton}"
+                            Click="CloseButton_Click"
+                            Width="24" Height="24" ToolTip="{DynamicResource '关闭'}">
+                        <materialDesign:PackIcon Kind="WindowClose" Width="18" Height="18" Foreground="White" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <StackPanel Grid.Row="1" Margin="12,0,12,8">
+                <Border Padding="8,6"
+                        CornerRadius="6"
+                        Background="#CC8A4F00"
+                        BorderBrush="#99FFB74D"
+                        BorderThickness="1"
+                        Visibility="{Binding HomeAlertMessage, Converter={StaticResource StringVisibilityConverter}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding HomeAlertMessage}"
+                                   FontSize="12"
+                                   Foreground="White"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,8,0"/>
+                        <Button Grid.Column="1"
+                                Command="{Binding CloseHomeAlertCommand}"
+                                Style="{StaticResource MaterialDesignIconButton}"
+                                Width="22"
+                                Height="22"
+                                ToolTip="{DynamicResource '关闭'}">
+                            <materialDesign:PackIcon Kind="Close" Width="14" Height="14" Foreground="White"/>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <Border Padding="8,6"
+                        CornerRadius="6"
+                        Margin="0,6,0,0"
+                        Background="#CC1E3A8A"
+                        BorderBrush="#995B9BFF"
+                        BorderThickness="1"
+                        Visibility="{Binding RateLimitNoticeMessage, Converter={StaticResource StringVisibilityConverter}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding RateLimitNoticeMessage}"
+                                   FontSize="11"
+                                   Foreground="White"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,10,0"/>
+                        <Button Grid.Column="1"
+                                Content="{DynamicResource 'RateLimitDonateButton'}"
+                                Command="{Binding OpenDonationGuideCommand}"
+                                Style="{StaticResource MaterialDesignRaisedButton}"
+                                Padding="14,4"/>
+                        <Button Grid.Column="2"
+                                Command="{Binding CloseRateLimitNoticeCommand}"
+                                Style="{StaticResource MaterialDesignIconButton}"
+                                Width="22"
+                                Height="22"
+                                Margin="8,0,0,0"
+                                ToolTip="{DynamicResource '关闭'}">
+                            <materialDesign:PackIcon Kind="Close" Width="14" Height="14" Foreground="White"/>
+                        </Button>
+                    </Grid>
+                </Border>
+            </StackPanel>
+
+            <!-- ================= Transcript List (virtualized) ================= -->
+            <Border x:Name="TranscriptGuideAnchor"
+                    Grid.Row="2"
+                    Margin="8,0"
+                    Padding="4"
+                    CornerRadius="18"
+                    Background="Transparent"
+                    BorderBrush="Transparent"
+                    BorderThickness="1"
+                    SnapsToDevicePixels="True">
+                <Grid>
+                    <ListBox Margin="0"
+                             ItemsSource="{Binding Transcripts}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.CanContentScroll="True"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling">
+                <ListBox.Resources>
+                    <SolidColorBrush x:Key="HomeTranscriptScrollBarBrush" Color="#CCFFFFFF"/>
+
+                    <Style x:Key="HomeTranscriptScrollBarButtonStyle" TargetType="{x:Type RepeatButton}">
+                        <Setter Property="Focusable" Value="False"/>
+                        <Setter Property="IsTabStop" Value="False"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="{x:Type RepeatButton}">
+                                    <Border x:Name="ButtonChrome"
+                                            Background="{TemplateBinding Background}"
+                                            CornerRadius="4">
+                                        <Path x:Name="ArrowGlyph"
+                                              Width="6"
+                                              Height="4"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              Data="M 0 4 L 3 1 L 6 4 Z"
+                                              Fill="{StaticResource HomeTranscriptScrollBarBrush}"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="Tag" Value="Down">
+                                            <Setter TargetName="ArrowGlyph" Property="Data" Value="M 0 1 L 3 4 L 6 1 Z"/>
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="ButtonChrome" Property="Background" Value="#18FFFFFF"/>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="ButtonChrome" Property="Background" Value="#28FFFFFF"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+
+                    <Style x:Key="HomeTranscriptScrollBarThumbStyle" TargetType="{x:Type Thumb}">
+                        <Setter Property="Focusable" Value="False"/>
+                        <Setter Property="IsTabStop" Value="False"/>
+                        <Setter Property="Background" Value="{StaticResource HomeTranscriptScrollBarBrush}"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="{x:Type Thumb}">
+                                    <Border Background="{TemplateBinding Background}"
+                                            CornerRadius="4"
+                                            Margin="2,0"/>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+
+                    <Style TargetType="{x:Type ScrollBar}">
+                        <Setter Property="Width" Value="12"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="{x:Type ScrollBar}">
+                                    <Grid Background="{TemplateBinding Background}">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="12"/>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="12"/>
+                                        </Grid.RowDefinitions>
+
+                                        <RepeatButton Grid.Row="0"
+                                                      Command="{x:Static ScrollBar.LineUpCommand}"
+                                                      Style="{StaticResource HomeTranscriptScrollBarButtonStyle}"/>
+
+                                        <Grid Grid.Row="1" Margin="0,4">
+                                            <Border Margin="3,0"
+                                                    CornerRadius="4"
+                                                    Background="#22FFFFFF"/>
+                                            <Track x:Name="PART_Track"
+                                                   IsDirectionReversed="True">
+                                                <Track.DecreaseRepeatButton>
+                                                    <RepeatButton Command="{x:Static ScrollBar.PageUpCommand}"
+                                                                  Opacity="0"
+                                                                  Focusable="False"
+                                                                  IsTabStop="False"/>
+                                                </Track.DecreaseRepeatButton>
+                                                <Track.Thumb>
+                                                    <Thumb Style="{StaticResource HomeTranscriptScrollBarThumbStyle}"/>
+                                                </Track.Thumb>
+                                                <Track.IncreaseRepeatButton>
+                                                    <RepeatButton Command="{x:Static ScrollBar.PageDownCommand}"
+                                                                  Opacity="0"
+                                                                  Focusable="False"
+                                                                  IsTabStop="False"/>
+                                                </Track.IncreaseRepeatButton>
+                                            </Track>
+                                        </Grid>
+
+                                        <RepeatButton Grid.Row="2"
+                                                      Tag="Down"
+                                                      Command="{x:Static ScrollBar.LineDownCommand}"
+                                                      Style="{StaticResource HomeTranscriptScrollBarButtonStyle}"/>
+                                    </Grid>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListBox.Resources>
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+                        <Setter Property="Padding" Value="0"/>
+                        <Setter Property="Margin" Value="0"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Button Style="{StaticResource TranscriptRowButtonStyle}"
+                                Command="{Binding DataContext.CopyTranscriptCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                CommandParameter="{Binding}"
+                                ToolTip="{DynamicResource '点击翻译条复制到剪贴板'}">
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Width="3" CornerRadius="1.5" Margin="0,4,10,4"
+                                        VerticalAlignment="Stretch"
+                                        Background="{Binding Source, Converter={StaticResource SourceToColorConverter}}"/>
+                                <StackPanel Grid.Column="1">
+                                    <Border Background="#CC1E3A8A"
+                                            BorderBrush="#995B9BFF"
+                                            BorderThickness="1"
+                                            CornerRadius="10"
+                                            Padding="8,2"
+                                            Margin="0,0,0,6"
+                                            HorizontalAlignment="Left"
+                                            Visibility="{Binding StatusTag, Converter={StaticResource StringVisibilityConverter}}">
+                                        <TextBlock Text="{Binding StatusTag}"
+                                                   FontSize="11"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="White"/>
+                                    </Border>
+                                    <TextBlock Text="{Binding Translation}"
+                                               FontSize="18" FontWeight="Bold" Foreground="White"
+                                               TextWrapping="Wrap" LineHeight="26"
+                                               Effect="{StaticResource SubtitleShadow}">
+                                        <TextBlock.Visibility>
+                                            <MultiBinding Converter="{StaticResource MultiAndVisibilityConverter}">
+                                                <Binding Path="Translation"/>
+                                                <Binding Path="DataContext.ShowTranslation1" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                            </MultiBinding>
+                                        </TextBlock.Visibility>
+                                    </TextBlock>
+                                    <TextBlock Text="{Binding Translation2}"
+                                               FontSize="18" FontWeight="Bold" Foreground="White"
+                                               TextWrapping="Wrap" LineHeight="26" Margin="0,2,0,0"
+                                               Effect="{StaticResource SubtitleShadow}">
+                                        <TextBlock.Visibility>
+                                            <MultiBinding Converter="{StaticResource MultiAndVisibilityConverter}">
+                                                <Binding Path="Translation2"/>
+                                                <Binding Path="DataContext.ShowTranslation2" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                            </MultiBinding>
+                                        </TextBlock.Visibility>
+                                    </TextBlock>
+                                    <TextBlock Text="{Binding Translation3}"
+                                               FontSize="18" FontWeight="Bold" Foreground="White"
+                                               TextWrapping="Wrap" LineHeight="26" Margin="0,2,0,0"
+                                               Effect="{StaticResource SubtitleShadow}">
+                                        <TextBlock.Visibility>
+                                            <MultiBinding Converter="{StaticResource MultiAndVisibilityConverter}">
+                                                <Binding Path="Translation3"/>
+                                                <Binding Path="DataContext.ShowTranslation3" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                            </MultiBinding>
+                                        </TextBlock.Visibility>
+                                    </TextBlock>
+                                    <TextBlock Text="{Binding Original}"
+                                               FontSize="13" Foreground="White"
+                                               TextWrapping="Wrap" Margin="0,2,0,0"
+                                               Effect="{StaticResource SubtitleShadow}">
+                                        <TextBlock.Visibility>
+                                            <MultiBinding Converter="{StaticResource MultiAndVisibilityConverter}">
+                                                <Binding Path="Original"/>
+                                                <Binding Path="DataContext.ShowOriginal" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                            </MultiBinding>
+                                        </TextBlock.Visibility>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+
+            <!-- Text OSC Send -->
+            <Border x:Name="ManualGuideAnchor" Grid.Row="4" Margin="12,8,12,12" Padding="8" BorderBrush="#55FFFFFF" BorderThickness="1" CornerRadius="6" SnapsToDevicePixels="True">
+                <Grid>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Button Grid.Column="0"
+                                Style="{StaticResource MaterialDesignIconButton}"
+                                Command="{Binding PasteManualTextCommand}"
+                                Width="28" Height="28" Margin="0,0,8,0"
+                                ToolTip="{DynamicResource '粘贴'}">
+                            <materialDesign:PackIcon Kind="ContentPaste" Width="16" Height="16" Foreground="#FFFFFF"/>
+                        </Button>
+
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding ManualInputText, UpdateSourceTrigger=PropertyChanged}"
+                                 materialDesign:HintAssist.Hint="{DynamicResource '输入文字并发送 OSC 翻译'}"
+                                 Foreground="#FFFFFF"
+                                 CaretBrush="#FFFFFF"
+                                 Margin="0,0,8,0">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Enter" Command="{Binding SendManualTextCommand}"/>
+                            </TextBox.InputBindings>
+                        </TextBox>
+
+                        <Button Grid.Column="2"
+                                Content="{DynamicResource '发送翻译'}"
+                                Command="{Binding SendManualTextCommand}"
+                                Style="{StaticResource MaterialDesignRaisedButton}"
+                                Padding="16,6"/>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- Resize handle -->
+            <Grid Grid.Row="3" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,2,2">
+                <materialDesign:PackIcon Kind="ResizeBottomRight" Foreground="White" Width="16" Height="16" Cursor="SizeNWSE"/>
+            </Grid>
+
+            <Grid x:Name="QuickStartOverlay"
+                  Grid.RowSpan="5"
+                  Panel.ZIndex="20"
+                  Visibility="{Binding IsQuickStartGuideVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Grid.Resources>
+                    <Style x:Key="TutorialCardStyle" TargetType="Border">
+                        <Setter Property="Background" Value="#F9192233"/>
+                        <Setter Property="BorderBrush" Value="#55FFFFFF"/>
+                        <Setter Property="BorderThickness" Value="1"/>
+                        <Setter Property="CornerRadius" Value="16"/>
+                        <Setter Property="Padding" Value="24"/>
+                        <Setter Property="Width" Value="380"/>
+                        <Setter Property="Effect">
+                            <Setter.Value>
+                                <DropShadowEffect BlurRadius="10" ShadowDepth="0" Color="#AA000000" Opacity="0.35"/>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="White"/>
+                        <Setter Property="Effect" Value="{x:Null}"/>
+                        <Setter Property="SnapsToDevicePixels" Value="True"/>
+                    </Style>
+
+                    <Style TargetType="materialDesign:PackIcon">
+                        <Setter Property="Foreground" Value="White"/>
+                        <Setter Property="Effect" Value="{x:Null}"/>
+                        <Setter Property="SnapsToDevicePixels" Value="True"/>
+                    </Style>
+                </Grid.Resources>
+
+                <Path x:Name="QuickStartMaskPath"
+                      Fill="#CC08111F"/>
+
+                <Canvas x:Name="QuickStartHighlightCanvas"
+                        IsHitTestVisible="False">
+                    <Border x:Name="QuickStartPrimaryHighlight"
+                            Visibility="Collapsed"
+                            Background="Transparent"
+                            BorderBrush="#FF6BE5FF"
+                            BorderThickness="3"
+                            CornerRadius="18"/>
+                    <Border x:Name="QuickStartSecondaryHighlight"
+                            Visibility="Collapsed"
+                            Background="Transparent"
+                            BorderBrush="#FFFFB347"
+                            BorderThickness="3"
+                            CornerRadius="18"/>
+                </Canvas>
+
+                <Border Style="{StaticResource TutorialCardStyle}"
+                        Visibility="{Binding QuickStartStep, Converter={StaticResource IntEqualityToVisibilityConverter}, ConverterParameter=1}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource QuickStartStep1Title}"
+                                   FontSize="24"
+                                   FontWeight="Bold"
+                                   Foreground="White"/>
+                        <TextBlock Text="{DynamicResource QuickStartStep1Desc}"
+                                   Margin="0,12,0,24"
+                                   FontSize="14"
+                                   Foreground="#E6FFFFFF"
+                                   TextWrapping="Wrap"
+                                   LineHeight="22"/>
+                        <Grid>
+                            <Button Content="{DynamicResource QuickStartBtnSkip}"
+                                    Command="{Binding DismissQuickStartGuideCommand}"
+                                    Style="{StaticResource MaterialDesignFlatButton}"
+                                    Foreground="#99FFFFFF"
+                                    HorizontalAlignment="Left"/>
+                            <Button Content="{DynamicResource QuickStartBtnNext}"
+                                    Command="{Binding NextQuickStartStepCommand}"
+                                    Style="{StaticResource MaterialDesignRaisedButton}"
+                                    HorizontalAlignment="Right"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <StackPanel Visibility="{Binding QuickStartStep, Converter={StaticResource IntEqualityToVisibilityConverter}, ConverterParameter=2}"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Margin="0,48,76,0">
+                    <Border Style="{StaticResource TutorialCardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource QuickStartStep2Title}"
+                                       FontSize="20"
+                                       FontWeight="Bold"
+                                       Foreground="White"/>
+                            <TextBlock Text="{DynamicResource QuickStartStep2Desc}"
+                                       Margin="0,12,0,16"
+                                       FontSize="14"
+                                       Foreground="#E6FFFFFF"
+                                       TextWrapping="Wrap"
+                                       LineHeight="22"/>
+                            <ComboBox ItemsSource="{Binding UiLanguages}"
+                                      SelectedValue="{Binding UiLanguage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      SelectedValuePath="Code"
+                                      DisplayMemberPath="DisplayName"
+                                      Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                      Margin="0,0,0,24"/>
+                            <Grid>
+                                <Button Content="{DynamicResource QuickStartBtnSkip}"
+                                        Command="{Binding DismissQuickStartGuideCommand}"
+                                        Style="{StaticResource MaterialDesignFlatButton}"
+                                        Foreground="#99FFFFFF"
+                                        HorizontalAlignment="Left"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Content="{DynamicResource QuickStartBtnPrev}"
+                                            Command="{Binding PrevQuickStartStepCommand}"
+                                            Style="{StaticResource MaterialDesignFlatButton}"
+                                            Foreground="White"
+                                            Margin="0,0,8,0"/>
+                                    <Button Content="{DynamicResource QuickStartBtnNext}"
+                                            Command="{Binding NextQuickStartStepCommand}"
+                                            Style="{StaticResource MaterialDesignRaisedButton}"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Visibility="{Binding QuickStartStep, Converter={StaticResource IntEqualityToVisibilityConverter}, ConverterParameter=3}"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Margin="40,48,0,0">
+                    <Border Style="{StaticResource TutorialCardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource QuickStartStep3Title}"
+                                       FontSize="20"
+                                       FontWeight="Bold"
+                                       Foreground="White"/>
+                            <TextBlock Text="{DynamicResource QuickStartStep3Desc}"
+                                       Margin="0,12,0,24"
+                                       FontSize="14"
+                                       Foreground="#E6FFFFFF"
+                                       TextWrapping="Wrap"
+                                       LineHeight="22"/>
+                            <Grid>
+                                <Button Content="{DynamicResource QuickStartBtnSkip}"
+                                        Command="{Binding DismissQuickStartGuideCommand}"
+                                        Style="{StaticResource MaterialDesignFlatButton}"
+                                        Foreground="#99FFFFFF"
+                                        HorizontalAlignment="Left"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Content="{DynamicResource QuickStartBtnPrev}"
+                                            Command="{Binding PrevQuickStartStepCommand}"
+                                            Style="{StaticResource MaterialDesignFlatButton}"
+                                            Foreground="White"
+                                            Margin="0,0,8,0"/>
+                                    <Button Content="{DynamicResource QuickStartBtnNext}"
+                                            Command="{Binding NextQuickStartStepCommand}"
+                                            Style="{StaticResource MaterialDesignRaisedButton}"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Visibility="{Binding QuickStartStep, Converter={StaticResource IntEqualityToVisibilityConverter}, ConverterParameter=4}"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                    <Border Style="{StaticResource TutorialCardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource QuickStartStep4Title}"
+                                       FontSize="20"
+                                       FontWeight="Bold"
+                                       Foreground="White"/>
+                            <TextBlock Text="{DynamicResource QuickStartStep4Desc}"
+                                       Margin="0,12,0,24"
+                                       FontSize="14"
+                                       Foreground="#E6FFFFFF"
+                                       TextWrapping="Wrap"
+                                       LineHeight="22"/>
+                            <Grid>
+                                <Button Content="{DynamicResource QuickStartBtnSkip}"
+                                        Command="{Binding DismissQuickStartGuideCommand}"
+                                        Style="{StaticResource MaterialDesignFlatButton}"
+                                        Foreground="#99FFFFFF"
+                                        HorizontalAlignment="Left"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Content="{DynamicResource QuickStartBtnPrev}"
+                                            Command="{Binding PrevQuickStartStepCommand}"
+                                            Style="{StaticResource MaterialDesignFlatButton}"
+                                            Foreground="White"
+                                            Margin="0,0,8,0"/>
+                                    <Button Content="{DynamicResource QuickStartBtnNext}"
+                                            Command="{Binding NextQuickStartStepCommand}"
+                                            Style="{StaticResource MaterialDesignRaisedButton}"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Visibility="{Binding QuickStartStep, Converter={StaticResource IntEqualityToVisibilityConverter}, ConverterParameter=5}"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Bottom"
+                            Margin="0,0,0,70">
+                    <Border Style="{StaticResource TutorialCardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource QuickStartStep5Title}"
+                                       FontSize="20"
+                                       FontWeight="Bold"
+                                       Foreground="White"/>
+                            <TextBlock Text="{DynamicResource QuickStartStep5Desc}"
+                                       Margin="0,12,0,24"
+                                       FontSize="14"
+                                       Foreground="#E6FFFFFF"
+                                       TextWrapping="Wrap"
+                                       LineHeight="22"/>
+                            <Grid>
+                                <Button Content="{DynamicResource QuickStartBtnSkip}"
+                                        Command="{Binding DismissQuickStartGuideCommand}"
+                                        Style="{StaticResource MaterialDesignFlatButton}"
+                                        Foreground="#99FFFFFF"
+                                        HorizontalAlignment="Left"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Content="{DynamicResource QuickStartBtnPrev}"
+                                            Command="{Binding PrevQuickStartStepCommand}"
+                                            Style="{StaticResource MaterialDesignFlatButton}"
+                                            Foreground="White"
+                                            Margin="0,0,8,0"/>
+                                    <Button Content="{DynamicResource QuickStartBtnNext}"
+                                            Command="{Binding NextQuickStartStepCommand}"
+                                            Style="{StaticResource MaterialDesignRaisedButton}"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Visibility="{Binding QuickStartStep, Converter={StaticResource IntEqualityToVisibilityConverter}, ConverterParameter=6}"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Margin="0,48,60,0">
+                    <Border Style="{StaticResource TutorialCardStyle}" Width="420">
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource QuickStartStep6Title}"
+                                       FontSize="20"
+                                       FontWeight="Bold"
+                                       Foreground="White"/>
+                            <TextBlock Text="{DynamicResource QuickStartStep6Desc}"
+                                       Margin="0,12,0,24"
+                                       FontSize="14"
+                                       Foreground="#E6FFFFFF"
+                                       TextWrapping="Wrap"
+                                       LineHeight="22"/>
+                            <Grid>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                    <Button Content="{DynamicResource QuickStartGuideRecognitionButton}"
+                                            Command="{Binding OpenQuickStartRecognitionCommand}"
+                                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                                            Foreground="White"
+                                            BorderBrush="#55FFFFFF"
+                                            Margin="0,0,8,0"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Content="{DynamicResource QuickStartBtnPrev}"
+                                            Command="{Binding PrevQuickStartStepCommand}"
+                                            Style="{StaticResource MaterialDesignFlatButton}"
+                                            Foreground="White"
+                                            Margin="0,0,8,0"/>
+                                    <Button Content="{DynamicResource QuickStartBtnFinish}"
+                                            Command="{Binding DismissQuickStartGuideCommand}"
+                                            Style="{StaticResource MaterialDesignRaisedButton}"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+</Grid>
+    </Border>
+</Window>
