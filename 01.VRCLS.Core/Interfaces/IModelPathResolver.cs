@@ -16,5 +16,10 @@ namespace VRCLS.Core.Interfaces
         /// Resolve the Sherpa model directory for local recognition, if available.
         /// </summary>
         string? ResolveSherpaModelDir();
+
+        /// <summary>
+        /// Resolve a complete SenseVoice model directory containing model.onnx and tokens.txt.
+        /// </summary>
+        string? ResolveSenseVoiceModelDir();
     }
 }
