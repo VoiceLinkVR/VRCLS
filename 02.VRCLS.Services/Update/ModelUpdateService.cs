@@ -270,28 +270,7 @@ namespace VRCLS.Services.Update
 
         private bool HasSenseVoiceModel()
         {
-            if (!string.IsNullOrWhiteSpace(_config.SenseVoiceModelDir))
-            {
-                var configured = Path.Combine(_config.SenseVoiceModelDir, "model.onnx");
-                if (File.Exists(configured))
-                {
-                    return true;
-                }
-            }
-
-            var root = ResolveModelRoot();
-            var defaultPath = Path.Combine(root, "sensevoice-small", "model.onnx");
-            if (File.Exists(defaultPath))
-            {
-                return true;
-            }
-
-            if (!Directory.Exists(root))
-            {
-                return false;
-            }
-
-            return Directory.EnumerateFiles(root, "model.onnx", SearchOption.AllDirectories).Any();
+            return !string.IsNullOrWhiteSpace(_modelPathResolver.ResolveSenseVoiceModelDir());
         }
 
         private static ModelPackageInfo? SelectBestCandidate(IReadOnlyList<ModelPackageInfo> models, string type)

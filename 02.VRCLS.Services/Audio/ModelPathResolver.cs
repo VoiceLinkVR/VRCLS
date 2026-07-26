@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using VRCLS.Core.Interfaces;
 using VRCLS.Core.Models;
 using Serilog;
@@ -150,6 +151,77 @@ namespace VRCLS.Services.Audio
 
             _logger.Warning("未找到Sherpa模型目录");
             return null;
+        }
+
+        public string? ResolveSenseVoiceModelDir()
+        {
+            _logger.Debug("开始解析SenseVoice模型目录");
+
+            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            var rootDir = ResolveRootDir(baseDir);
+            var preModelsRoot = GetPreModelsRoot(baseDir, rootDir);
+            var candidates = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(_config.SenseVoiceModelDir))
+            {
+                candidates.Add(_config.SenseVoiceModelDir);
+            }
+
+            candidates.Add(Path.Combine(preModelsRoot, "sensevoice-small"));
+            candidates.Add(Path.Combine(baseDir, "models", "sensevoice-small"));
+            candidates.Add(Path.Combine(rootDir, "models", "sensevoice-small"));
+
+            foreach (var candidate in candidates)
+            {
+                if (IsCompleteSenseVoiceModel(candidate))
+                {
+                    _logger.Information("找到SenseVoice模型 - 路径: {Path}", candidate);
+                    return candidate;
+                }
+            }
+
+            foreach (var searchRoot in new[]
+            {
+                preModelsRoot,
+                Path.Combine(baseDir, "models"),
+                Path.Combine(rootDir, "models")
+            }.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (!Directory.Exists(searchRoot))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    foreach (var modelPath in Directory.EnumerateFiles(
+                        searchRoot,
+                        "model.onnx",
+                        SearchOption.AllDirectories))
+                    {
+                        var modelDir = Path.GetDirectoryName(modelPath);
+                        if (IsCompleteSenseVoiceModel(modelDir))
+                        {
+                            _logger.Information("找到SenseVoice模型 - 路径: {Path}", modelDir);
+                            return modelDir;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Debug(ex, "搜索SenseVoice模型目录失败: {Path}", searchRoot);
+                }
+            }
+
+            _logger.Warning("未找到完整SenseVoice模型目录");
+            return null;
+        }
+
+        private static bool IsCompleteSenseVoiceModel(string? modelDir)
+        {
+            return !string.IsNullOrWhiteSpace(modelDir)
+                && File.Exists(Path.Combine(modelDir, "model.onnx"))
+                && File.Exists(Path.Combine(modelDir, "tokens.txt"));
         }
     }
 }

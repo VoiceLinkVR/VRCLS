@@ -9,6 +9,7 @@ namespace VRCLS.Core.Models
         AudioProcessingRepeatedFailures,
         RecognitionAuthRequired,
         RecognitionAuthExpired,
+        RecognitionFailed,
         TtsAuthRequired,
         TtsRateLimit,
         TtsAuthExpired,
