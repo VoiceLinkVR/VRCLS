@@ -20,11 +20,13 @@
   <ItemGroup>
     <Compile Include="..\..\01.VRCLS.Core\Interfaces\IRecognitionService.cs" Link="Production\IRecognitionService.cs" />
     <Compile Include="..\..\01.VRCLS.Core\Interfaces\IModelPathResolver.cs" Link="Production\IModelPathResolver.cs" />
+    <Compile Include="..\..\01.VRCLS.Core\Models\ConfigEnums.cs" Link="Production\ConfigEnums.cs" />
     <Compile Include="..\..\01.VRCLS.Core\Models\RecognitionSegmentInfo.cs" Link="Production\RecognitionSegmentInfo.cs" />
     <Compile Include="..\..\01.VRCLS.Core\Models\ServiceErrorCode.cs" Link="Production\ServiceErrorCode.cs" />
     <Compile Include="..\..\01.VRCLS.Core\Models\ServiceErrorEvent.cs" Link="Production\ServiceErrorEvent.cs" />
     <Compile Include="..\..\01.VRCLS.Core\Models\TranscriptionResult.cs" Link="Production\TranscriptionResult.cs" />
     <Compile Include="..\..\02.VRCLS.Services\Audio\ModelPathResolver.cs" Link="Production\ModelPathResolver.cs" />
+    <Compile Include="..\..\02.VRCLS.Services\Audio\RecognitionRouteSelector.cs" Link="Production\RecognitionRouteSelector.cs" />
     <Compile Include="..\..\02.VRCLS.Services\Recognition\IOfflineSenseVoiceRecognizer.cs" Link="Production\IOfflineSenseVoiceRecognizer.cs" />
     <Compile Include="..\..\02.VRCLS.Services\Recognition\SenseVoiceAsrService.cs" Link="Production\SenseVoiceAsrService.cs" />
   </ItemGroup>

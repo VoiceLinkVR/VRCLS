@@ -1190,6 +1190,15 @@ namespace VRCLS.UI.ViewModels
                     NotifyServiceWarning("Recognition", "识别服务登录状态已过期，请重新登录后再试。");
                     return;
 
+                case ServiceErrorCode.RecognitionFailed:
+                {
+                    var reason = ResolveServiceErrorReason(error);
+                    NotifyServiceWarning("Recognition", string.IsNullOrWhiteSpace(reason)
+                        ? "本地语音识别失败。"
+                        : $"本地语音识别失败：{reason}");
+                    return;
+                }
+
                 case ServiceErrorCode.TtsRateLimit:
                     return;
 

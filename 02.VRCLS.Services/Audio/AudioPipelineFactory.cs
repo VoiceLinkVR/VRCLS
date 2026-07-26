@@ -128,24 +128,10 @@ namespace VRCLS.Services.Audio
 
         private bool IsMicStreamingLocalMode(string source)
         {
-            if (!string.Equals(source, "Mic", StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            if (_config.RecognitionBackendModeValue != RecognitionBackendMode.Local)
-            {
-                return false;
-            }
-
-            if (_config.LocalRecognitionModelValue == LocalRecognitionModel.Sherpa)
-            {
-                return true;
-            }
-
-            // If a Sherpa streaming model exists, treat it as streaming even when the model type is not set.
-            var sherpaDir = _modelPathResolver.ResolveSherpaModelDir();
-            return !string.IsNullOrWhiteSpace(sherpaDir);
+            return RecognitionRouteSelector.Select(
+                source,
+                _config.RecognitionBackendModeValue,
+                _config.LocalRecognitionModelValue) == RecognitionRoute.LocalSherpa;
         }
 
         private IRecognitionService CreateRecognitionService(string source, bool useVad)
@@ -153,30 +139,46 @@ namespace VRCLS.Services.Audio
             var mode = _config.RecognitionBackendModeValue;
             _logger.Debug("Recognition service mode: {Mode}", mode);
 
-            if (string.Equals(source, "Desktop", StringComparison.OrdinalIgnoreCase))
+            var route = RecognitionRouteSelector.Select(
+                source,
+                mode,
+                _config.LocalRecognitionModelValue);
+
+            if (route == RecognitionRoute.Remote)
             {
-                _logger.Information("Desktop source uses remote recognition service only.");
+                _logger.Information("Using remote FastAPI recognition service. Source: {Source}", source);
                 return new FastApiRecognitionService(_config, source, _backendAuthService, _httpClientFactory);
             }
 
-            if (mode == RecognitionBackendMode.Local)
+            if (route == RecognitionRoute.LocalSenseVoice)
             {
-                _logger.Debug("Attempting to use local recognition service for source: {Source}", source);
-
-                var sherpaDir = _modelPathResolver.ResolveSherpaModelDir();
-                if (!string.IsNullOrWhiteSpace(sherpaDir))
+                var senseVoiceDir = _modelPathResolver.ResolveSenseVoiceModelDir();
+                if (string.IsNullOrWhiteSpace(senseVoiceDir))
                 {
-                    _logger.Information("Using local Sherpa recognition service. Source: {Source}, ModelDir: {SherpaDir}", source, sherpaDir);
-                    var endpointSilence = Math.Clamp(_config.LocalStreamingEndpointSilenceSeconds, 0.8f, 3.0f);
-                    return new SherpaAsrService(sherpaDir, source, useVad, endpointSilence);
+                    throw new InvalidOperationException(
+                        "Local SenseVoice model is incomplete. Configure a directory containing model.onnx and tokens.txt.");
                 }
 
-                _logger.Warning("Sherpa model directory not found; falling back to remote recognition.");
+                _logger.Information(
+                    "Using local SenseVoice recognition service. Source: {Source}, ModelDir: {SenseVoiceDir}",
+                    source,
+                    senseVoiceDir);
+                return new SenseVoiceAsrService(senseVoiceDir, source);
             }
 
-            // Default to remote API
-            _logger.Information("Using remote FastAPI recognition service.");
-            return new FastApiRecognitionService(_config, source, _backendAuthService, _httpClientFactory);
+            var sherpaDir = _modelPathResolver.ResolveSherpaModelDir();
+            if (string.IsNullOrWhiteSpace(sherpaDir))
+            {
+                throw new InvalidOperationException(
+                    "Local Sherpa model is incomplete or missing. Check the local model directory.");
+            }
+
+            _logger.Information(
+                "Using local Sherpa recognition service. Source: {Source}, ModelDir: {SherpaDir}",
+                source,
+                sherpaDir);
+            var endpointSilence = Math.Clamp(_config.LocalStreamingEndpointSilenceSeconds, 0.8f, 3.0f);
+            return new SherpaAsrService(sherpaDir, source, useVad, endpointSilence);
         }
 
         private void ValidateOfficialVadChecksum(string vadPath)

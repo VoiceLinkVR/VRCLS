@@ -2929,7 +2929,7 @@ public void SyncFromMainViewModel(MainViewModel mainViewModel)
 
             var recognitionModelName = GetCurrentLocalRecognitionModelDisplayName();
             var recognitionModelInstalled = _config.LocalRecognitionModelValue == LocalRecognitionModel.SenseVoice
-                ? !string.IsNullOrWhiteSpace(ResolveSenseVoiceModelDir())
+                ? !string.IsNullOrWhiteSpace(resolver.ResolveSenseVoiceModelDir())
                 : !string.IsNullOrWhiteSpace(resolver.ResolveSherpaModelDir());
             if (!recognitionModelInstalled)
             {
@@ -3295,67 +3295,6 @@ public void SyncFromMainViewModel(MainViewModel mainViewModel)
                     .Where(model => model != null)
                     .Select(model => GetModelDisplayName(model.Type))
                     .Distinct(StringComparer.OrdinalIgnoreCase));
-        }
-
-        private string? ResolveSenseVoiceModelDir()
-        {
-            try
-            {
-                if (!string.IsNullOrWhiteSpace(_config.SenseVoiceModelDir))
-                {
-                    var configured = Path.Combine(_config.SenseVoiceModelDir, "model.onnx");
-                    if (File.Exists(configured))
-                    {
-                        return _config.SenseVoiceModelDir;
-                    }
-                }
-
-                foreach (var root in EnumerateModelRoots())
-                {
-                    var defaultDir = Path.Combine(root, "sensevoice-small");
-                    if (File.Exists(Path.Combine(defaultDir, "model.onnx")))
-                    {
-                        return defaultDir;
-                    }
-
-                    if (!Directory.Exists(root))
-                    {
-                        continue;
-                    }
-
-                    var modelPath = Directory.EnumerateFiles(root, "model.onnx", SearchOption.AllDirectories).FirstOrDefault();
-                    if (!string.IsNullOrWhiteSpace(modelPath))
-                    {
-                        return Path.GetDirectoryName(modelPath);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.Debug(ex, "ResolveSenseVoiceModelDir failed.");
-            }
-
-            return null;
-        }
-
-        private IEnumerable<string> EnumerateModelRoots()
-        {
-            var roots = new List<string>();
-            if (!string.IsNullOrWhiteSpace(_config.PreModelsDir))
-            {
-                try
-                {
-                    roots.Add(Path.GetFullPath(_config.PreModelsDir));
-                }
-                catch
-                {
-                }
-            }
-
-            roots.Add(Path.Combine(AppContext.BaseDirectory, "pre-models"));
-            return roots
-                .Where(root => !string.IsNullOrWhiteSpace(root))
-                .Distinct(StringComparer.OrdinalIgnoreCase);
         }
 
         public string DisplayUsername
