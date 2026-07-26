@@ -52,6 +52,9 @@ namespace VRCLS.Services.Audio
         {
             _logger.Information("Creating audio pipeline. Source: {Source}, Loopback: {IsLoopback}", source, isLoopback);
 
+            AudioCaptureService? capture = null;
+            IVadService? vad = null;
+            IRecognitionService? recognition = null;
             try
             {
                 var useVad = !IsMicStreamingLocalMode(source);
@@ -77,9 +80,8 @@ namespace VRCLS.Services.Audio
                 }
 
                 _logger.Debug("Creating audio capture service.");
-                var capture = new AudioCaptureService();
+                capture = new AudioCaptureService();
 
-                IVadService? vad = null;
                 if (useVad)
                 {
                     _logger.Debug("Creating VAD service.");
@@ -104,7 +106,7 @@ namespace VRCLS.Services.Audio
                 }
 
                 _logger.Debug("Creating recognition service.");
-                var recognition = CreateRecognitionService(source, useVad);
+                recognition = CreateRecognitionService(source, useVad);
 
                 _logger.Debug("Creating audio pipeline service.");
                 var pipeline = new AudioPipelineService(
@@ -122,7 +124,27 @@ namespace VRCLS.Services.Audio
             catch (Exception ex)
             {
                 _logger.Error(ex, "Failed to create audio pipeline. Source: {Source}", source);
+                DisposeFailedPipelineComponent(recognition, "recognition");
+                DisposeFailedPipelineComponent(vad, "VAD");
+                DisposeFailedPipelineComponent(capture, "capture");
                 throw;
+            }
+        }
+
+        private static void DisposeFailedPipelineComponent(object? component, string componentName)
+        {
+            if (component is not IDisposable disposable)
+            {
+                return;
+            }
+
+            try
+            {
+                disposable.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Failed to dispose {Component} after pipeline creation failure.", componentName);
             }
         }
 

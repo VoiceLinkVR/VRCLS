@@ -94,10 +94,106 @@ public sealed class SenseVoiceAsrServiceTests
         Assert.Throws<ObjectDisposedException>(() => service.Start());
     }
 
+    [Fact]
+    public async Task Stop_WaitsForInFlightDecode()
+    {
+        using var decodeStarted = new ManualResetEventSlim();
+        using var allowDecode = new ManualResetEventSlim();
+        using var stopStarted = new ManualResetEventSlim();
+        using var recognizer = new FakeRecognizer
+        {
+            DecodeHandler = _ =>
+            {
+                decodeStarted.Set();
+                allowDecode.Wait();
+                return "finished";
+            }
+        };
+        using var service = new SenseVoiceAsrService(recognizer);
+        service.Start();
+
+        var decodeTask = Task.Run(() => service.ProcessAudio([0.1f]));
+        Task? stopTask = null;
+        try
+        {
+            Assert.True(decodeStarted.Wait(TimeSpan.FromSeconds(5)));
+            stopTask = Task.Run(() =>
+            {
+                stopStarted.Set();
+                service.Stop();
+            });
+            Assert.True(stopStarted.Wait(TimeSpan.FromSeconds(5)));
+            var completed = await Task.WhenAny(stopTask, Task.Delay(100));
+            Assert.NotSame(stopTask, completed);
+        }
+        finally
+        {
+            allowDecode.Set();
+        }
+
+        await decodeTask;
+        if (stopTask != null)
+        {
+            await stopTask;
+        }
+
+        Assert.False(service.IsRunning);
+        Assert.Equal(1, recognizer.DecodeCount);
+    }
+
+    [Fact]
+    public async Task Dispose_WaitsForInFlightDecode()
+    {
+        using var decodeStarted = new ManualResetEventSlim();
+        using var allowDecode = new ManualResetEventSlim();
+        using var disposeStarted = new ManualResetEventSlim();
+        var recognizer = new FakeRecognizer
+        {
+            DecodeHandler = _ =>
+            {
+                decodeStarted.Set();
+                allowDecode.Wait();
+                return "finished";
+            }
+        };
+        var service = new SenseVoiceAsrService(recognizer);
+        service.Start();
+
+        var decodeTask = Task.Run(() => service.ProcessAudio([0.1f]));
+        Task? disposeTask = null;
+        try
+        {
+            Assert.True(decodeStarted.Wait(TimeSpan.FromSeconds(5)));
+            disposeTask = Task.Run(() =>
+            {
+                disposeStarted.Set();
+                service.Dispose();
+            });
+            Assert.True(disposeStarted.Wait(TimeSpan.FromSeconds(5)));
+            var completed = await Task.WhenAny(disposeTask, Task.Delay(100));
+            Assert.NotSame(disposeTask, completed);
+        }
+        finally
+        {
+            allowDecode.Set();
+        }
+
+        await decodeTask;
+        if (disposeTask != null)
+        {
+            await disposeTask;
+        }
+
+        Assert.False(service.IsRunning);
+        Assert.Equal(1, recognizer.DecodeCount);
+        Assert.Equal(1, recognizer.DisposeCount);
+    }
+
     private sealed class FakeRecognizer : IOfflineSenseVoiceRecognizer
     {
         public string Result { get; init; } = string.Empty;
         public Exception? Exception { get; init; }
+        public Func<float[], string>? DecodeHandler { get; init; }
         public int DecodeCount { get; private set; }
         public int DisposeCount { get; private set; }
 
@@ -109,7 +205,7 @@ public sealed class SenseVoiceAsrServiceTests
                 throw Exception;
             }
 
-            return Result;
+            return DecodeHandler?.Invoke(audioData) ?? Result;
         }
 
         public void Dispose()
